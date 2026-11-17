@@ -193,42 +193,42 @@ namespace ForestSoldier.Tests
             yield return Frames(30);
             int shots = 0;
             weapon.Fired += _ => shots++;
+            int shotsWhenReloadStarted = -1;
+            weapon.ReloadStarted += () => shotsWhenReloadStarted = shots;
             input.Fire = true;
             yield return Seconds(1f);
             Assert.That(shots, Is.InRange(9, 11), "600 rpm");
-            yield return Seconds(3f);
-            Assert.AreEqual(30, shots);
+            for (int i = 0; i < 180 && !weapon.IsReloading; i++) yield return null;
+            Assert.IsTrue(weapon.IsReloading, "the last round starts the reload");
+            Assert.AreEqual(weapon.MagazineSize, shotsWhenReloadStarted);
+            Assert.AreEqual(weapon.MagazineSize, shots);
             Assert.AreEqual(0, weapon.Ammo);
-            input.Fire = false;
-            yield return null;
-
-            input.ReloadRequested = true;
-            yield return null;
-            Assert.IsTrue(weapon.IsReloading);
             Assert.IsTrue(player.GetComponent<UpperBodyOverlay>().IsPlaying, "reload clip plays");
-            input.Fire = true;
             yield return Seconds(0.5f);
-            Assert.AreEqual(30, shots, "no shots while reloading");
+            Assert.AreEqual(weapon.MagazineSize, shots, "no shots while reloading");
+            for (int i = 0; i < 180 && shots == weapon.MagazineSize; i++) yield return null;
             input.Fire = false;
-            yield return Seconds(2f);
             Assert.IsFalse(weapon.IsReloading);
-            Assert.AreEqual(weapon.MagazineSize, weapon.Ammo);
+            Assert.AreEqual(weapon.MagazineSize + 1, shots, "held fire resumes after reloading");
+            Assert.AreEqual(weapon.MagazineSize - 1, weapon.Ammo);
         }
 
         [UnityTest]
-        public IEnumerator EmptyTriggerPullStartsAReload()
+        public IEnumerator ManualReloadStillWorksWithRoundsRemaining()
         {
             yield return Teleport(new Vector3(14f, 0.05f, 0f), 90f);
             rig.Pitch = -40f;
             input.Fire = true;
-            yield return Seconds(3.5f);
+            for (int i = 0; i < 30 && weapon.ShotsFired == 0; i++) yield return null;
             input.Fire = false;
-            yield return null;
-            Assert.AreEqual(0, weapon.Ammo);
-            input.Fire = true;
-            yield return null;
-            input.Fire = false;
+            Assert.That(weapon.Ammo, Is.InRange(1, weapon.MagazineSize - 1));
+            Assert.IsFalse(weapon.IsReloading);
+            input.ReloadRequested = true;
+            yield return Frames(2);
             Assert.IsTrue(weapon.IsReloading);
+            yield return Seconds(2.3f);
+            Assert.IsFalse(weapon.IsReloading);
+            Assert.AreEqual(weapon.MagazineSize, weapon.Ammo);
         }
 
         [UnityTest]
@@ -265,6 +265,39 @@ namespace ForestSoldier.Tests
                 Assert.Less(err, 3f, $"barrel off the crosshair by {err:F1} deg at camera pitch {pitch}: " +
                     $"barrel {weapon.Muzzle.forward} at {weapon.Muzzle.position}, aim point {weapon.AimPoint}, " +
                     $"rig weight {player.GetComponent<SoldierAimRig>().Weight:F2}, body yaw {player.eulerAngles.y:F1}");
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator FirstShotUsesTheRaisedRifleInBothStances()
+        {
+            yield return Teleport(new Vector3(14f, 0.05f, 0f), 90f);
+            var head = player.GetComponent<SoldierAnimator>().Animator.GetComponentsInChildren<Transform>()
+                .First(bone => bone.name == "head");
+            float standingHeadHeight = head.position.y;
+            foreach (bool crouch in new[] { false, true })
+            {
+                input.Crouch = crouch;
+                input.Aim = crouch;
+                rig.Pitch = 0f;
+                yield return Frames(24);
+                Assert.AreEqual(crouch, motor.IsCrouching);
+                if (crouch) Assert.Less(head.position.y, standingHeadHeight - 0.35f);
+
+                float barrelAtHead = float.NaN;
+                void CheckShot(ShotResult shot)
+                {
+                    var muzzle = weapon.Muzzle;
+                    var horizontal = Vector3.ProjectOnPlane(muzzle.forward, Vector3.up);
+                    float depth = Vector3.Dot(head.position - muzzle.position, horizontal) / horizontal.sqrMagnitude;
+                    barrelAtHead = muzzle.position.y + muzzle.forward.y * depth - head.position.y;
+                }
+                weapon.Fired += CheckShot;
+                input.Fire = true;
+                for (int i = 0; i < 12 && float.IsNaN(barrelAtHead); i++) yield return null;
+                input.Fire = false;
+                weapon.Fired -= CheckShot;
+                Assert.That(barrelAtHead, Is.InRange(-0.07f, 0.10f), $"barrel height relative to head in crouch={crouch}");
             }
         }
 

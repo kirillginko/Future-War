@@ -22,6 +22,7 @@ namespace ForestSoldier.Player
         public Vector2 Look { get; set; }
         public bool Sprint { get; set; }
         public bool Aim { get; set; }
+        public bool Crouch { get; set; }
         /// <summary>Fire button held (false while the click that captured the cursor is still down).</summary>
         public bool Fire { get; set; }
         /// <summary>Set on the press; the consumer clears it.</summary>
@@ -31,7 +32,7 @@ namespace ForestSoldier.Player
         public bool CursorLocked { get; private set; }
 
         private InputActionMap map;
-        private InputAction move, look, sprint, aim, fire, reload, resetTargets, pause;
+        private InputAction move, look, sprint, aim, crouch, fire, reload, resetTargets, pause;
         private bool fireHeldSinceCapture;
 
         private void Awake()
@@ -47,6 +48,7 @@ namespace ForestSoldier.Player
             look = map.FindAction("Look", true);
             sprint = map.FindAction("Sprint", true);
             aim = map.FindAction("Aim", true);
+            crouch = map.FindAction("Crouch", true);
             fire = map.FindAction("Fire", true);
             reload = map.FindAction("Reload", true);
             resetTargets = map.FindAction("ResetTargets", true);
@@ -77,6 +79,7 @@ namespace ForestSoldier.Player
             Sprint = sprint.IsPressed();
             Look = CursorLocked ? look.ReadValue<Vector2>() : Vector2.zero;
             Aim = CursorLocked && aim.IsPressed();
+            Crouch = CursorLocked && crouch.IsPressed();
             Fire = CursorLocked && !fireHeldSinceCapture && fire.IsPressed();
             if (CursorLocked && reload.WasPressedThisFrame()) ReloadRequested = true;
             if (resetTargets.WasPressedThisFrame()) ResetTargetsRequested = true;

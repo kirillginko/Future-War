@@ -63,7 +63,7 @@ namespace ForestSoldier.Tests
         private float Param(string name) => anim.Animator.GetFloat(name);
 
         [UnityTest]
-        public IEnumerator RunsForwardRelativeToCamera()
+        public IEnumerator WalksForwardRelativeToCamera()
         {
             yield return Teleport(new Vector3(0f, 0.05f, 0f), 0f);
             rig.Yaw = 90f; // camera looks along +X
@@ -71,12 +71,14 @@ namespace ForestSoldier.Tests
             input.Move = new Vector2(0f, 1f);
             yield return Seconds(1.5f);
             Vector3 d = player.position - start;
-            Assert.Greater(d.x, 2.2f, "should travel ~2.6 m along the camera's forward");
+            Assert.Greater(d.x, 1.2f, "should travel ~1.45 m along the camera's forward");
             Assert.Less(Mathf.Abs(d.z), 0.3f);
             Assert.Greater(Vector3.Dot(player.forward, Vector3.right), 0.97f, "should turn to face movement");
-            Assert.Greater(Param("MoveZ"), 1.4f);
+            Assert.Greater(Param("MoveZ"), 0.85f);
             Assert.Less(Mathf.Abs(Param("MoveX")), 0.3f);
-            Assert.That(motor.AnimationVelocity.magnitude, Is.EqualTo(motor.RunSpeed).Within(0.1f));
+            Assert.That(motor.AnimationVelocity.magnitude, Is.EqualTo(SoldierMotor.WalkSpeed).Within(0.1f));
+            var clips = anim.Animator.GetCurrentAnimatorClipInfo(0);
+            Assert.IsTrue(System.Array.Exists(clips, info => info.clip.name == "Walking" && info.weight > 0.9f));
         }
 
         [UnityTest]
@@ -148,7 +150,7 @@ namespace ForestSoldier.Tests
         {
             yield return Teleport(new Vector3(-8f, 0.05f, 6f), 0f);
             input.Move = new Vector2(0f, 1f);
-            yield return Seconds(3.5f);
+            yield return Seconds(4.5f);
             Assert.Greater(player.position.y, 0.6f, "20 degree ramp is walkable");
             Assert.IsTrue(motor.IsGrounded);
 

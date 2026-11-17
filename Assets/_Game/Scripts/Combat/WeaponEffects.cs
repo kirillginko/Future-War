@@ -33,7 +33,9 @@ namespace ForestSoldier.Combat
         [Header("Audio")]
         [SerializeField] private AudioSource source;
         [SerializeField] private AudioClip shot;
+        [SerializeField] private AudioClip[] shotVariants = System.Array.Empty<AudioClip>();
         [SerializeField] private AudioClip dryFire;
+        [SerializeField] private AudioClip reloadSound;
         [SerializeField] private AudioClip reloadClack;
         [SerializeField] private AudioClip hitConfirm;
         [SerializeField] private float pitchJitter = 0.05f;
@@ -52,10 +54,12 @@ namespace ForestSoldier.Combat
         private readonly List<Tracer> tracers = new List<Tracer>();
         private readonly List<ParticleSystem> impacts = new List<ParticleSystem>();
         private int nextTracer, nextImpact;
+        private int lastShotVariant = -1;
         private readonly List<float> reloadClacks = new List<float>(3);
 
         private void Awake()
         {
+            shotVariants = System.Array.FindAll(shotVariants, clip => clip != null);
             if (flashLight != null) flashLightIntensity = flashLight.intensity;
             SetFlash(false);
 
@@ -123,16 +127,34 @@ namespace ForestSoldier.Combat
                 ps.Emit(particlesPerImpact);
             }
 
-            Play(this.shot, shotVolume);
+            Play(ChooseShot(), shotVolume);
             if (hitDamageable) Play(hitConfirm, hitVolume);
+        }
+
+        private AudioClip ChooseShot()
+        {
+            if (shotVariants.Length == 0) return shot;
+            if (shotVariants.Length == 1) return shotVariants[0];
+
+            int index = Random.Range(0, lastShotVariant < 0 ? shotVariants.Length : shotVariants.Length - 1);
+            if (lastShotVariant >= 0 && index >= lastShotVariant) index++;
+            lastShotVariant = index;
+            return shotVariants[index];
         }
 
         public void PlayDryFire() => Play(dryFire, 0.6f);
 
-        /// <summary>Mag out, mag in, bolt: three clacks spread over the reload.</summary>
+        /// <summary>Play the magazine recording at the same pace as the reload animation.</summary>
         public void PlayReload(float seconds)
         {
             reloadClacks.Clear();
+            if (source != null && reloadSound != null && seconds > 0f)
+            {
+                source.pitch = reloadSound.length / seconds;
+                source.PlayOneShot(reloadSound, 0.8f);
+                return;
+            }
+
             reloadClacks.Add(Time.time + seconds * 0.15f);
             reloadClacks.Add(Time.time + seconds * 0.55f);
             reloadClacks.Add(Time.time + seconds * 0.82f);

@@ -3,10 +3,7 @@ using UnityEngine;
 namespace ForestSoldier.Player
 {
     /// <summary>
-    /// Feeds the motor's state into the Animator. Locomotion is one 2D
-    /// freeform blend tree driven by local velocity in m/s. Every clip in it
-    /// holds the SMG forward (the export bakes an aiming upper body into the
-    /// walk-back and diagonal clips), so aiming needs no extra layer.
+    /// Drives standing and crouching locomotion from the motor's actual velocity.
     /// </summary>
     public class SoldierAnimator : MonoBehaviour
     {
@@ -20,6 +17,7 @@ namespace ForestSoldier.Player
         private static readonly int Speed = Animator.StringToHash("Speed");
         private static readonly int Aiming = Animator.StringToHash("Aiming");
         private static readonly int Grounded = Animator.StringToHash("Grounded");
+        private static readonly int Crouching = Animator.StringToHash("Crouching");
 
         public Animator Animator => animator;
 
@@ -41,6 +39,7 @@ namespace ForestSoldier.Player
             animator.SetFloat(Speed, motor.AnimationVelocity.magnitude);
             animator.SetBool(Aiming, motor.FacingCamera);
             animator.SetBool(Grounded, motor.IsGrounded);
+            animator.SetBool(Crouching, motor.IsCrouching);
         }
     }
 }

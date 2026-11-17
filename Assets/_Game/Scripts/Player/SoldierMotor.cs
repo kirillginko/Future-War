@@ -16,10 +16,11 @@ namespace ForestSoldier.Player
         [SerializeField] private ThirdPersonCamera cameraRig;
 
         [Header("Speeds (m/s)")]
-        [Tooltip("Matches the run-forward clip at 1.14x playback.")]
-        [SerializeField] private float runSpeed = 1.8f;
+        public const float WalkSpeed = 0.99f;
         [SerializeField] private float sprintSpeed = 5.5f;
         [SerializeField] private float aimMoveSpeed = 1.8f;
+        public const float CrouchMoveSpeed = 1.22f;
+        [SerializeField] private float crouchHeight = 1.35f;
         [Tooltip("Speed multiplier when moving backwards while aiming.")]
         [Range(0.3f, 1f)] [SerializeField] private float backwardMultiplier = 0.7f;
         [SerializeField] private float acceleration = 14f;
@@ -40,6 +41,8 @@ namespace ForestSoldier.Player
         private CharacterController controller;
         private Vector3 planarVelocity;
         private float verticalSpeed;
+        private float standingHeight;
+        private Vector3 standingCenter;
 
         /// <summary>Horizontal velocity the controller actually achieved last frame (walls included).</summary>
         public Vector3 AnimationVelocity { get; private set; }
@@ -51,12 +54,15 @@ namespace ForestSoldier.Player
         /// <summary>Degrees between the body's yaw and the camera's yaw.</summary>
         public float FacingError { get; private set; }
         public bool IsSprinting { get; private set; }
-        public float RunSpeed => runSpeed;
+        public bool IsCrouching { get; private set; }
+        public float CrouchDrop => IsCrouching ? standingHeight - controller.height : 0f;
         public float SprintSpeed => sprintSpeed;
 
         private void Awake()
         {
             controller = GetComponent<CharacterController>();
+            standingHeight = controller.height;
+            standingCenter = controller.center;
             if (input == null) input = GetComponent<SoldierInput>();
             if (cameraRig == null) cameraRig = FindFirstObjectByType<ThirdPersonCamera>();
         }
@@ -75,7 +81,8 @@ namespace ForestSoldier.Player
 
             IsAiming = input.Aim;
             FacingCamera = IsAiming || input.Fire;
-            IsSprinting = input.Sprint && !FacingCamera && moving;
+            UpdateStance(input.Crouch);
+            IsSprinting = input.Sprint && !FacingCamera && !IsCrouching && moving;
 
             float speed;
             if (FacingCamera)
@@ -83,7 +90,8 @@ namespace ForestSoldier.Player
                 float back = moving ? Mathf.Clamp01(-move.y / move.magnitude) : 0f;
                 speed = aimMoveSpeed * Mathf.Lerp(1f, backwardMultiplier, back);
             }
-            else speed = IsSprinting ? sprintSpeed : runSpeed;
+            else speed = IsSprinting ? sprintSpeed : WalkSpeed;
+            if (IsCrouching) speed = CrouchMoveSpeed;
 
             Vector3 target = wishDir * speed;
             float rate = target.sqrMagnitude >= planarVelocity.sqrMagnitude ? acceleration : deceleration;
@@ -109,6 +117,24 @@ namespace ForestSoldier.Player
 
             IsGrounded = controller.isGrounded || ProbeGround();
             FacingError = Mathf.Abs(Mathf.DeltaAngle(transform.eulerAngles.y, viewYaw));
+        }
+
+        private void UpdateStance(bool crouch)
+        {
+            if (crouch == IsCrouching) return;
+            if (!crouch)
+            {
+                Vector3 top = transform.TransformPoint(controller.center + Vector3.up *
+                    (controller.height * 0.5f - controller.radius));
+                int mask = ~(1 << gameObject.layer) & ~Physics.IgnoreRaycastLayer;
+                if (Physics.SphereCast(top, controller.radius - controller.skinWidth, Vector3.up,
+                        out _, CrouchDrop, mask, QueryTriggerInteraction.Ignore)) return;
+            }
+
+            float height = crouch ? Mathf.Clamp(crouchHeight, 2f * controller.radius, standingHeight) : standingHeight;
+            controller.height = height;
+            controller.center = standingCenter + Vector3.down * ((standingHeight - height) * 0.5f);
+            IsCrouching = crouch;
         }
 
         private void TurnTowards(float yaw, float degPerSec, float dt)

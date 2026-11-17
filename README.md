@@ -2,7 +2,7 @@
 
 Single-player third-person shooter prototype. Unity 6000.5.5f1, URP, Input System only.
 
-Status: **Milestones 1 (soldier) and 2 (shooting range) done.** Forest and polish are Milestones 3–4.
+Status: **Milestones 1–3 done** (soldier, shooting range, forest). Polish and a desktop build are Milestone 4.
 
 ## Open it
 
@@ -10,12 +10,13 @@ Unity Hub → Add → this folder. Open `Assets/_Game/Scenes/ForestRange.unity` 
 
 | Action | Input |
 |---|---|
-| Move | W A S D (camera-relative) |
+| Walk | W A S D (camera-relative) |
 | Look | Mouse |
 | Sprint | Left Shift (not while aiming) |
 | Aim | Hold right mouse (zooms; turns the soldier to the camera; strafes) |
-| Fire | Left mouse (automatic; hip fire turns the soldier to the camera first) |
-| Reload | R (an empty trigger pull also reloads) |
+| Crouch | Hold Left Ctrl |
+| Fire | Left mouse (automatic; shoulders the rifle and aims at the crosshair) |
+| Reload | R, or automatically after the last round |
 | Reset targets | T |
 | Pause / free the cursor | Escape; click to re-capture (that click doesn't fire) |
 
@@ -34,12 +35,15 @@ Source: [Soldier_Animated.blend](Tools/Blender/Soldier_Animated.blend) (a Sketch
 
 | State | Clip | Notes |
 |---|---|---|
-| Idle / aim idle | Rifle Aiming Idle | SMG shouldered, level |
-| Run forward (1.8 m/s) | Loop Run Forward | loop cut from *Shoot Rifle*, which starts from a standstill |
-| Sprint (5.5 m/s) | Sprint Forward | already in place; SMG carried low in one hand |
+| Idle | Rifle Aiming Idle | Standing base pose |
+| Standing aim and fire | Rifle Aim Idle | Upper body follows the crosshair |
+| Crouch aim and fire | Idle Crouching Aiming | Upper body blends over Crouch Walking while moving |
+| Walk forward (0.99 m/s) | Walking | full forward walk cycle |
+| Move forward while aiming (1.8 m/s) | Loop Run Forward | full rifle run cycle from *Shoot Rifle* |
+| Sprint (5.5 m/s) | Sprint Forward | in-place cycle; SMG carried low in one hand |
 | Aim strafe right | Loop Strafe Right | loop cut from *Strafing* (frames 33–53) |
 | Aim strafe left | Loop Strafe Left | **baked**: mirrored legs, right-handed upper body kept |
-| Aim walk back | Aim Walk Back | **baked**: *Backwards Rifle Walk* legs + aiming upper body (the original holds the gun low and to the left) |
+| Aim walk back | Walking Backwards | backward walk with the rifle aim pose blended over it |
 | Aim diagonals forward | Aim Walk Forward Left / Right | **baked**: *Walk Forward Left* legs (mirrored for right) + aiming upper body (the original is at port arms) |
 | Fire | — | procedural recoil instead of *Firing Rifle*, so the kick matches the fire rate |
 | Reload | Reload(1) | standing reload, played over the legs by `UpperBodyOverlay`; *Reload* is a 207-frame kneeling one |
@@ -91,6 +95,26 @@ Tools/Blender/              export_soldier.py
 
 The range runs east from the spawn: targets at 10, 15, 20, 25 (moving), 30, 40, 50 (half behind a crate), 60 and 75 m (moving), with distance posts every 10 m and a backstop.
 
+## The forest (Milestone 3)
+
+`ForestRange.unity` is a 300 m Unity Terrain built by `ForestSoldierSetup.Forest.cs`. Everything is seeded, so a rebuild gives the same forest.
+
+- **Clearings:** the training yard (x −30..30, z −35..30) and the range lane (x 10..110, z ±12) are flat at y = 0 and gravelled. They blend into rolling forest floor (about ±5 m) over 14 m.
+- **Trail:** a dirt trail leaves the yard north, loops west past the lookout hill and the pond, and reaches the range from the south. Its grade is smoothed so it stays walkable.
+- **Trees, rocks, bushes:** 573 low-poly trees (4 pine and 3 broadleaf variants), 149 rocks, 260 bushes. The meshes are generated and flat-shaded. Trunks (capsules) and rocks (convex mesh colliders) block movement and bullets. Canopies and bushes don't. Trees are kept 4 m from the clearings and off the trail.
+- **Landmarks:** a fire lookout tower on the north-west hill (above the treeline), a radio mast with a red light north of the yard, three standing stones south-east, and a pond south-west.
+- **Edges:** rim hills plus invisible walls at ±132 m.
+- **Atmosphere:** warm sun with 90 m shadows, a procedural sky, exponential fog, the template's post-processing profile, and a generated 24 s forest ambience loop (wind, leaves, birds).
+- **Layout data:** clearings, trail, pond and landmarks are defined in `Scripts/Environment/ForestLayout.cs`, which both the builder and the tests read.
+
+Milestone 3 tests:
+- **Ground:** clearings are flat and the forest rolls; the spawn is grounded.
+- **Trail:** walkable end to end, at at least 70% of flat-ground speed.
+- **Placement:** trees, rocks and bushes sit on the ground.
+- **Blocking:** trees stop the player and bullets; the boundary holds.
+- **Range:** every target's head is visible from the firing line.
+- **Audio:** the ambience loops.
+
 ## Inspector wiring
 
 All of this is assigned by the setup script; listed here so you can check or redo it by hand.
@@ -102,7 +126,7 @@ All of this is assigned by the setup script; listed here so you can check or red
 - **Player/Model**: the FBX. Animator controller `Soldier`, Apply Root Motion off, Culling Always Animate.
 - **Main Camera** (not parented to the player): `ThirdPersonCamera.target` → Player; `input` → Player's SoldierInput; `collisionMask` → everything except Player and Ignore Raycast.
 
-Tuning lives on SoldierMotor (speeds, acceleration, turn rates, gravity) and ThirdPersonCamera (offsets, distances, FOV, sensitivity, pitch limits, collision). The run speed and blend-tree time scales are matched to the measured clip speeds, so feet don't slide. If you change `runSpeed` or `sprintSpeed`, update the matching constants in `ForestSoldierSetup` and rebuild.
+Tuning lives on SoldierMotor (speeds, acceleration, turn rates, gravity) and ThirdPersonCamera (offsets, distances, FOV, sensitivity, pitch limits, collision). The walk uses its measured travel speed. If you change `aimMoveSpeed` or `sprintSpeed`, update the corresponding blend tree speeds in `ForestSoldierSetup` and rebuild.
 
 ## Tests
 
@@ -118,7 +142,7 @@ Milestone 1 tests: camera-relative running, sprint speed and stopping, aim-straf
 
 Milestone 2 tests (18 in all with M1):
 - **Hit resolution:** hits what the crosshair is on; low cover takes the round even when the camera sees over it; a barrel through a wall hits the wall; things between the camera and the player are ignored.
-- **Firing:** an aimed burst drops the 15 m target in 8 rounds or fewer, with hit markers and the target falling over; 600 rpm and a 30-round magazine; no shots while reloading; the magazine is full afterwards; an empty trigger pull starts a reload.
+- **Firing:** an aimed burst drops the 15 m target in 8 rounds or fewer, with hit markers and the target falling over. The rifle fires at 600 rpm, varies its shot sample, and reloads after the last round of its 30-round magazine.
 - **Resetting:** reset restores health and colliders.
 - **Aiming:** the barrel stays within 3° of the crosshair looking up, level and down.
 - **Hip fire:** never shoots out of the side of the body.
@@ -129,7 +153,7 @@ Milestone 2 tests (18 in all with M1):
 - [ ] Headshots show yellow numbers and take two hits
 - [ ] Shoot the 50 m target's lower half: the crate takes it
 - [ ] Look up and down while aiming: the SMG stays on the crosshair
-- [ ] Empty the magazine; R reloads (or pull the trigger on empty), with the reload animation even while walking
+- [ ] Empty the magazine to start the reload animation and sound automatically, or press R to reload early
 - [ ] T stands every target back up; the top-left counter resets
 - [ ] Escape, then click back in: that click doesn't fire
 
@@ -143,10 +167,21 @@ Milestone 2 tests (18 in all with M1):
 - [ ] Walk up the 20° and 40° ramps and the steps; the 60° ramp blocks you
 - [ ] Escape frees the cursor; clicking re-captures it
 
+## Milestone 3 checklist (by hand, in the Editor)
+
+- [ ] Follow the trail from the yard's north side all the way round to the range
+- [ ] Climb toward the lookout tower; find the pond and the three stones
+- [ ] Trees and rocks stop you; bushes don't
+- [ ] Shoot a trunk: sparks on the bark, and the round doesn't pass through
+- [ ] The fog hides the world's edge; the rim hills and walls keep you in
+- [ ] Ambience plays under the gunfire
+
 ## Known gaps / next
 
 - **Sounds and effects are placeholders** generated by the setup script (synthesised WAVs, a procedural flash texture). Drop real assets onto `WeaponEffects` to replace them.
 - **Looking far down while aiming** bends the whole upper body forward about the chest; it reads more like a bow than a lean. A two-bone spread (some pitch on the hips) would look better.
 - **Sprint holds the SMG one-handed and low** (that's the clip); firing cancels sprint.
 - *Firing Rifle* is unused: procedural recoil reads better at 600 rpm. `UpperBodyOverlay` could play it if wanted.
-- Next: Milestone 3, the forest terrain, replacing the grey test ground. The range layout moves into it.
+- **The camera can pass into tree canopies** in dense forest: only trunks have colliders. For Milestone 4: fade or dither foliage near the camera, or give canopies a camera-only collider layer.
+- Frame time in the forest hasn't been profiled yet (Milestone 4); the batch test runs are headless, so their FPS means nothing.
+- Next: Milestone 4, polish, profiling and a desktop build.

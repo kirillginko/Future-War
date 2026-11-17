@@ -10,7 +10,7 @@ namespace ForestSoldier.Combat
     /// magazine, reload, spread and recoil. Presentation hooks are events plus
     /// optional references (effects, aim rig, reload overlay).
     /// </summary>
-    [DefaultExecutionOrder(0)]
+    [DefaultExecutionOrder(200)]
     public class HitscanWeapon : MonoBehaviour
     {
         [Header("References")]
@@ -63,6 +63,7 @@ namespace ForestSoldier.Combat
         public Vector3 AimPoint { get; private set; }
         public Transform Muzzle => muzzle;
         public int ShotsFired { get; private set; }
+        public bool TriggerHeld => input != null && input.Fire;
 
         public event Action<ShotResult> Fired;
         public event Action<ShotResult, IDamageable, DamageResult> HitDamageable;
@@ -86,14 +87,17 @@ namespace ForestSoldier.Combat
 
         public void SetCamera(ThirdPersonCamera rig) => cameraRig = rig;
 
-        private Vector3 ShooterPoint => shooterOrigin != null ? shooterOrigin.position : transform.position + Vector3.up * 1.45f;
+        private Vector3 ShooterPoint =>
+            (shooterOrigin != null ? shooterOrigin.position : transform.position + Vector3.up * 1.45f)
+            - Vector3.up * (motor != null ? motor.CrouchDrop : 0f);
 
-        private void Update()
+        private void LateUpdate()
         {
             float dt = Time.deltaTime;
             if (cameraRig == null || muzzle == null) return;
 
             AimPoint = HitscanResolver.AimPoint(cameraRig.AimRay, ShooterPoint, range, hitMask, out _, out _);
+            if (aimRig != null && aimRig.isActiveAndEnabled) aimRig.ApplyAim();
 
             shotBloom = Mathf.MoveTowards(shotBloom, 0f, spreadRecovery * dt);
             bool moving = motor != null && motor.AnimationVelocity.sqrMagnitude > 0.25f;
@@ -136,15 +140,16 @@ namespace ForestSoldier.Combat
                 return;
             }
 
-            if (motor != null && motor.FacingError > maxFacingErrorToFire) return;
+            if (motor != null && (!motor.FacingCamera || motor.FacingError > maxFacingErrorToFire)) return;
 
             float interval = 60f / Mathf.Max(1f, roundsPerMinute);
             if (nextShotTime < Time.time - interval) nextShotTime = Time.time;
-            while (Time.time >= nextShotTime && Ammo > 0)
+            while (!IsReloading && Time.time >= nextShotTime && Ammo > 0)
             {
                 FireOnce();
                 nextShotTime += interval;
             }
+            if (Ammo == 0) TryReload();
         }
 
         public bool TryReload()

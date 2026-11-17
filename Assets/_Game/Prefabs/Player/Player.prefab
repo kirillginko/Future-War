@@ -436,9 +436,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: ForestSoldier::ForestSoldier.Player.SoldierMotor
   input: {fileID: 8761721915103541348}
   cameraRig: {fileID: 0}
-  runSpeed: 1.8
   sprintSpeed: 5.5
   aimMoveSpeed: 1.8
+  crouchHeight: 1.35
   backwardMultiplier: 0.7
   acceleration: 14
   deceleration: 18
@@ -576,9 +576,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: ForestSoldier::ForestSoldier.Player.UpperBodyOverlay
   proxyModel: {fileID: 919132149155446097, guid: 24749eb52132b45c3a262698cf1dac49, type: 3}
-  overlayController: {fileID: 9100000, guid: e17b2ee8a355f4a29b04ae4a4e4c90a0, type: 2}
   model: {fileID: 2449611984955978038}
-  reloadState: Reload
+  standingAimClip: {fileID: 944324648924104436, guid: 24749eb52132b45c3a262698cf1dac49, type: 3}
+  crouchingAimClip: {fileID: -6920026497332506651, guid: 24749eb52132b45c3a262698cf1dac49, type: 3}
   reloadClip: {fileID: 8236148210041945060, guid: 24749eb52132b45c3a262698cf1dac49, type: 3}
   blendIn: 0.15
   blendOut: 0.25
@@ -638,7 +638,14 @@ MonoBehaviour:
   particlesPerImpact: 10
   source: {fileID: 8677921741427619656}
   shot: {fileID: 8300000, guid: d1f56770918214ff59e998aca0842677, type: 3}
+  shotVariants:
+  - {fileID: 8300000, guid: d9d78dad9d85468ca028bfcd77a648e3, type: 3}
+  - {fileID: 8300000, guid: 647c75acd7394828a5439d0fe972ed5c, type: 3}
+  - {fileID: 8300000, guid: dd74721342dc4d169eca103b0d791a7d, type: 3}
+  - {fileID: 8300000, guid: 4f885b83e5bd44b49c76a9b4c64053f0, type: 3}
+  - {fileID: 8300000, guid: de3d4e6edc1e457781fb13084342b6dd, type: 3}
   dryFire: {fileID: 8300000, guid: 7b820e328bb614ec486f6630be55ffbb, type: 3}
+  reloadSound: {fileID: 8300000, guid: 78b2b605752c40028f22f18ac727344a, type: 3}
   reloadClack: {fileID: 8300000, guid: 35590713e3b414defa2fc31e2c526449, type: 3}
   hitConfirm: {fileID: 8300000, guid: 8446c04914a9a4bae9d0c90ce786e594, type: 3}
   pitchJitter: 0.05

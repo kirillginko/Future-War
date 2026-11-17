@@ -22,6 +22,7 @@ os.makedirs(OUT, exist_ok=True)
 UNITY_SCALE = 0.405  # model is 4.44 Blender units tall -> ~1.8 m
 REST = 0.0  # rootJoint rest location (x and z) is the origin
 FPS = bpy.context.scene.render.fps
+EXPORT_FPS = 48
 
 arm = bpy.data.objects["GLTF_created_0"]
 arm.name = "Soldier"
@@ -138,6 +139,34 @@ def make_loop(src_name, dst_name, min_len, max_len, search_from):
     return dst
 
 
+def close_cycle(action):
+    """Match the pose and velocity on either side of the wrap."""
+    start, end = action.frame_range
+    segments = round((end - start) * EXPORT_FPS / FPS)
+    times = [start + (end - start) * i / segments for i in range(segments + 1)]
+    window = round(EXPORT_FPS / 12)  # two source frames at each end
+    for curve in channelbag(action).fcurves:
+        values = [curve.evaluate(t) for t in times]
+        seam = (values[0] + values[-1]) * 0.5
+        slope = ((values[1] - values[0]) + (values[-1] - values[-2])) * 0.5
+        values[0] = values[-1] = seam
+        # Retain the interior of the gait while matching the first and last
+        # intervals exactly. Ease the correction out over the nearby samples.
+        start_delta = seam + slope - values[1]
+        end_delta = seam - slope - values[-2]
+        for i in range(1, window + 1):
+            t = (i - 1) / window
+            blend = (1 - t) ** 2 * (1 + 2 * t)
+            values[i] += blend * start_delta
+            values[-1 - i] += blend * end_delta
+        curve.keyframe_points.clear()
+        curve.keyframe_points.add(len(times))
+        curve.keyframe_points.foreach_set("co", [v for key in zip(times, values) for v in key])
+        for key in curve.keyframe_points:
+            key.interpolation = "LINEAR"
+        curve.update()
+
+
 def hybrid_clip(dst_name, lower_name, upper_name, mirror_lower):
     """Legs and hips from one clip, upper body (torso, arms, hands, SMG) from another.
 
@@ -210,8 +239,8 @@ def hybrid_clip(dst_name, lower_name, upper_name, mirror_lower):
 
 
 report = {"renamed_bones": len(renames)}
-# Steady loops for the locomotion blend tree. The source clips start from rest.
-make_loop("Shoot Rifle", "Loop Run Forward", 14, 28, 6)
+# The full rifle run returns both feet to their starting phase.
+make_loop("Shoot Rifle", "Loop Run Forward", 28, 28, 1)
 make_loop("Backwards Rifle Walk", "Loop Walk Back", 14, 38, 5)
 make_loop("Strafing", "Loop Strafe Right", 10, 30, 26)
 make_loop("Walk Forward Left", "Loop Walk Forward Left", 14, 30, 1)
@@ -251,6 +280,27 @@ for a in bpy.data.actions:
                       "forward_mps": round(fwd, 2), "left_mps": round(left, 2)}
 report["clips"] = speeds
 
+for name in ("Walking", "Walking Backwards", "Crouch Walking", "Loop Run Forward", "Sprint Forward"):
+    close_cycle(bpy.data.actions[name])
+
+# Blender's FBX sampler uses the scene frame rate for every take. Retiming
+# the keys before doubling the rate keeps the original durations.
+time_scale = EXPORT_FPS / FPS
+for action in bpy.data.actions:
+    start, end = action.frame_range
+    if action.use_frame_range:
+        action.frame_end = end * time_scale
+        action.frame_start = start * time_scale
+    for curve in channelbag(action).fcurves:
+        for key in curve.keyframe_points:
+            key.co.x *= time_scale
+            key.handle_left.x *= time_scale
+            key.handle_right.x *= time_scale
+        curve.update()
+    speeds[action.name]["frames"] = round((end - start) * time_scale) + 1
+bpy.context.scene.render.fps = EXPORT_FPS
+report["export_fps"] = EXPORT_FPS
+
 # 6. export ----------------------------------------------------------------------
 for img in bpy.data.images:
     if img.packed_file:
@@ -263,11 +313,22 @@ for o in arm.children:
     if o.type == "MESH":
         for m in o.data.materials:
             if m and m.use_nodes:
-                tex = [n.image.name for n in m.node_tree.nodes if n.type == "TEX_IMAGE" and n.image]
-                report["materials"][m.name] = tex
+                images = [n for n in m.node_tree.nodes if n.type == "TEX_IMAGE" and n.image]
+                report["materials"][m.name] = [n.image.name for n in images]
+                if not images:
+                    continue
+                # The original material is unlit. FBX's exporter reads image
+                # links on Principled nodes, so expose its atlas for export.
+                nodes = m.node_tree.nodes
+                shader = next((n for n in nodes if n.type == "BSDF_PRINCIPLED"), None)
+                if shader is None:
+                    shader = nodes.new("ShaderNodeBsdfPrincipled")
+                output = next(n for n in nodes if n.type == "OUTPUT_MATERIAL" and n.is_active_output)
+                m.node_tree.links.new(images[0].outputs["Color"], shader.inputs["Base Color"])
+                m.node_tree.links.new(shader.outputs["BSDF"], output.inputs["Surface"])
 
 assign(bpy.data.actions["Rifle Aiming Idle"])
-bpy.context.scene.frame_set(1)
+bpy.context.scene.frame_set(round(time_scale))
 for o in bpy.context.view_layer.objects:
     o.select_set(False)
 arm.select_set(True)
@@ -281,7 +342,7 @@ bpy.ops.export_scene.fbx(
     add_leaf_bones=False, bake_anim=True, bake_anim_use_all_bones=True,
     bake_anim_use_nla_strips=False, bake_anim_use_all_actions=True,
     bake_anim_force_startend_keying=True, bake_anim_simplify_factor=0.0,
-    path_mode="COPY", embed_textures=False, mesh_smooth_type="FACE",
+    path_mode="COPY", embed_textures=True, mesh_smooth_type="FACE",
     apply_scale_options="FBX_SCALE_ALL",  # Unity then reads 1 unit = 1 Blender unit
 )
 report["fbx"] = fbx

@@ -1,0 +1,195 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!43 &4300000
+Mesh:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: Mesh_Pine_3
+  serializedVersion: 12
+  m_SubMeshes:
+  - serializedVersion: 2
+    firstByte: 0
+    indexCount: 36
+    topology: 0
+    baseVertex: 0
+    firstVertex: 0
+    vertexCount: 36
+    localAABB:
+      m_Center: {x: 0, y: 2.3, z: 0}
+      m_Extent: {x: 0.24, y: 2.7, z: 0.2078461}
+  - serializedVersion: 2
+    firstByte: 72
+    indexCount: 168
+    topology: 0
+    baseVertex: 0
+    firstVertex: 36
+    vertexCount: 168
+    localAABB:
+      m_Center: {x: -0.13265562, y: 4.248706, z: -0.16082907}
+      m_Extent: {x: 2.474086, y: 2.9787943, z: 2.617037}
+  m_Shapes:
+    vertices: []
+    shapes: []
+    channels: []
+    fullWeights: []
+  m_BindPose: []
+  m_BoneNameHashes: 
+  m_RootBoneNameHash: 0
+  m_BonesAABB: []
+  m_VariableBoneCountWeights:
+    m_Data: 
+  m_MeshCompression: 0
+  m_IsReadable: 1
+  m_KeepVertices: 1
+  m_KeepIndices: 1
+  m_IndexFormat: 0
+  m_IndexBuffer: 00000100020003000400050006000700080009000a000b000c000d000e000f0010001100120013001400150016001700180019001a001b001c001d001e001f0020002100220023002400250026002700280029002a002b002c002d002e002f0030003100320033003400350036003700380039003a003b003c003d003e003f0040004100420043004400450046004700480049004a004b004c004d004e004f0050005100520053005400550056005700580059005a005b005c005d005e005f0060006100620063006400650066006700680069006a006b006c006d006e006f0070007100720073007400750076007700780079007a007b007c007d007e007f0080008100820083008400850086008700880089008a008b008c008d008e008f0090009100920093009400950096009700980099009a009b009c009d009e009f00a000a100a200a300a400a500a600a700a800a900aa00ab00ac00ad00ae00af00b000b100b200b300b400b500b600b700b800b900ba00bb00bc00bd00be00bf00c000c100c200c300c400c500c600c700c800c900ca00cb00
+  m_VertexData:
+    serializedVersion: 3
+    m_VertexCount: 204
+    m_Channels:
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 3
+    - stream: 0
+      offset: 12
+      format: 0
+      dimension: 3
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    m_DataSize: 4896
+    _typelessdata: 8fc2753ecdccccbe0000000055a95d3f3da09d3ce1f3ff3e8fc2f53d0000a0400000000055a95d3f3da09d3ce1f3ff3e8ec2753d0000a0409cd5d43d55a95d3f3da09d3ce1f3ff3e8fc2753ecdccccbe0000000055a95d3f3ea09d3cdff3ff3e8ec2753d0000a0409cd5d43d55a95d3f3ea09d3cdff3ff3e8ec2f53dcdccccbe9cd5543e55a95d3f3ea09d3cdff3ff3e8ec2f53dcdccccbe9cd5543e8a7ec5b33ca09d3cdef37f3f8ec2753d0000a0409cd5d43d8a7ec5b33ca09d3cdef37f3f91c275bd0000a0409bd5d43d8a7ec5b33ca09d3cdef37f3f8ec2f53dcdccccbe9cd5543e034f85b33da09d3cdef37f3f91c275bd0000a0409bd5d43d034f85b33da09d3cdef37f3f91c2f5bdcdccccbe9bd5543e034f85b33da09d3cdef37f3f91c2f5bdcdccccbe9bd5543e56a95dbf3ea09d3cdcf3ff3e91c275bd0000a0409bd5d43d56a95dbf3ea09d3cdcf3ff3e8fc2f5bd0000a040bb3a34b256a95dbf3ea09d3cdcf3ff3e91c2f5bdcdccccbe9bd5543e55a95dbf3da09d3cdcf3ff3e8fc2f5bd0000a040bb3a34b255a95dbf3da09d3cdcf3ff3e8fc275becdccccbebb3ab4b255a95dbf3da09d3cdcf3ff3e8fc275becdccccbebb3ab4b255a95dbf3da09d3ce2f3ffbe8fc2f5bd0000a040bb3a34b255a95dbf3da09d3ce2f3ffbe8cc275bd0000a0409cd5d4bd55a95dbf3da09d3ce2f3ffbe8fc275becdccccbebb3ab4b255a95dbf3ca09d3ce1f3ffbe8cc275bd0000a0409cd5d4bd55a95dbf3ca09d3ce1f3ffbe8cc2f5bdcdccccbe9cd554be55a95dbf3ca09d3ce1f3ffbe8cc2f5bdcdccccbe9cd554be000000003da09d3cdff37fbf8cc275bd0000a0409cd5d4bd000000003da09d3cdff37fbf8cc2753d0000a0409cd5d4bd000000003da09d3cdff37fbf8cc2f5bdcdccccbe9cd554be000000003ea09d3cdff37fbf8cc2753d0000a0409cd5d4bd000000003ea09d3cdff37fbf8cc2f53dcdccccbe9cd554be000000003ea09d3cdff37fbf8cc2f53dcdccccbe9cd554be56a95d3f3ca09d3cdef3ffbe8cc2753d0000a0409cd5d4bd56a95d3f3ca09d3cdef3ffbe8fc2f53d0000a040bb3ab43256a95d3f3ca09d3cdef3ffbe8cc2f53dcdccccbe9cd554be56a95d3f3da09d3cdef3ffbe8fc2f53d0000a040bb3ab43256a95d3f3da09d3cdef3ffbe8fc2753ecdccccbebb3a343356a95d3f3da09d3cdef3ffbedbd426c0211dca3fbb2c303f0d7c31bf6d7c323f8cac3abe8468ee3d3333834056b5d9bc0d7c31bf6d7c323f8cac3abe42b5f0bf9cb4e03f8206b3bf0d7c31bf6d7c323f8cac3abedbd426c0211dca3fbb2c303f3e8a963db2dd7ebf851e70bd42b5f0bf9cb4e03f8206b3bf3e8a963db2dd7ebf851e70bd000000009eefe73f000000003e8a963db2dd7ebf851e70bd42b5f0bf9cb4e03f8206b3bf0112c5be911c303f4b841dbf8468ee3d3333834056b5d9bc0112c5be911c303f4b841dbf60ddbfbda8c5c23f8fc831c00112c5be911c303f4b841dbf42b5f0bf9cb4e03f8206b3bfae0a47bdbd447ebf42f7d73d60ddbfbda8c5c23f8fc831c0ae0a47bdbd447ebf42f7d73d000000009eefe73f00000000ae0a47bdbd447ebf42f7d73d60ddbfbda8c5c23f8fc831c0fa47f63e3cff1e3fd8671ebf8468ee3d3333834056b5d9bcfa47f63e3cff1e3fd8671ebfbecee63f768ea43f3826c5bffa47f63e3cff1e3fd8671ebf60ddbfbda8c5c23f8fc831c024bc44be61b179bfaa0dde3dbecee63f768ea43f3826c5bf24bc44be61b179bfaa0dde3d000000009eefe73f0000000024bc44be61b179bfaa0dde3dbecee63f768ea43f3826c5bf1855473fd727163fdb3d64be8468ee3d3333834056b5d9bc1855473fd727163fdb3d64beffd915400800aa3fcf68e73e1855473fd727163fdb3d64bebecee63f768ea43f3826c5bf89955dbe2c1c79bfd246a23dffd915400800aa3fcf68e73e89955dbe2c1c79bfd246a23d000000009eefe73f0000000089955dbe2c1c79bfd246a23dffd915400800aa3fcf68e73e03b82f3f300a1e3f38ccc43e8468ee3d3333834056b5d9bc03b82f3f300a1e3f38ccc43e27bfa33f758ca23fe64d1c4003b82f3f300a1e3f38ccc43effd915400800aa3fcf68e73ebb2e36be89ec79bfc1eefcbd27bfa33f758ca23fe64d1c40bb2e36be89ec79bfc1eefcbd000000009eefe73f00000000bb2e36be89ec79bfc1eefcbd27bfa33f758ca23fe64d1c40a043153e0f062f3fd80e373f8468ee3d3333834056b5d9bca043153e0f062f3fd80e373f138d8abfda21e13f83321d40a043153e0f062f3fd80e373f27bfa33f758ca23fe64d1c400cf84ebe4f2079bfa68ce1bd138d8abfda21e13f83321d400cf84ebe4f2079bfa68ce1bd000000009eefe73f000000000cf84ebe4f2079bfa68ce1bd138d8abfda21e13f83321d40c7470fbf6679383f6388d13e8468ee3d3333834056b5d9bcc7470fbf6679383f6388d13edbd426c0211dca3fbb2c303fc7470fbf6679383f6388d13e138d8abfda21e13f83321d40f500c13d2dcf7ebf5cc3a33cdbd426c0211dca3fbb2c303ff500c13d2dcf7ebf5cc3a33c000000009eefe73f00000000f500c13d2dcf7ebf5cc3a33cd0ea2dbea6623c40615eea3fe35db2beefe6123f02be3d3fdf1b33bdc2f5a840a792a63de35db2beefe6123f02be3d3f94fccfbf2c124340d079883fe35db2beefe6123f02be3d3fd0ea2dbea6623c40615eea3fa71ea33b2e4e7dbf5e1814be94fccfbf2c124340d079883fa71ea33b2e4e7dbf5e1814be0000000069914d4000000000a71ea33b2e4e7dbf5e1814be94fccfbf2c124340d079883f3c8850bfce7b143f9914dc3bdf1b33bdc2f5a840a792a63d3c8850bfce7b143f9914dc3b60b0f2bf2af42b405f2d1fbf3c8850bfce7b143f9914dc3b94fccfbf2c124340d079883ffd2b573e485f76bf0052303e60b0f2bf2af42b405f2d1fbffd2b573e485f76bf0052303e0000000069914d4000000000fd2b573e485f76bf0052303e60b0f2bf2af42b405f2d1fbf914017bf1c4b133f9bc910bfdf1b33bdc2f5a840a792a63d914017bf1c4b133f9bc910bf306012bfa273494016a4c4bf914017bf1c4b133f9bc910bf60b0f2bf2af42b405f2d1fbfbbbe923e64aa74bfb88588bd306012bfa273494016a4c4bfbbbe923e64aa74bfb88588bd0000000069914d4000000000bbbe923e64aa74bfb88588bd306012bfa273494016a4c4bf0dfcc83d0dff153f53ed4dbfdf1b33bdc2f5a840a792a63d0dfcc83d0dff153f53ed4dbfac667c3fb8a32f4024ebd1bf0dfcc83d0dff153f53ed4dbf306012bfa273494016a4c4bf603176bec74276bfeade043eac667c3fb8a32f4024ebd1bf603176bec74276bfeade043e0000000069914d4000000000603176bec74276bfeade043eac667c3fb8a32f4024ebd1bfaae2153fadbe1a3f814a0abfdf1b33bdc2f5a840a792a63daae2153fadbe1a3f814a0abfbaf105400ef03840752b8ebeaae2153fadbe1a3f814a0abfac667c3fb8a32f4024ebd1bf9a30fbbd89ae78bf5322503ebaf105400ef03840752b8ebe9a30fbbd89ae78bf5322503e0000000069914d40000000009a30fbbd89ae78bf5322503ebaf105400ef03840752b8ebe6ffc3d3f19d8203f6d036f3edf1b33bdc2f5a840a792a63d6ffc3d3f19d8203f6d036f3e686eb03f26d84840829ca93f6ffc3d3f19d8203f6d036f3ebaf105400ef03840752b8ebee7350fbefa6b7cbf6975b93d686eb03f26d84840829ca93fe7350fbefa6b7cbf6975b93d0000000069914d4000000000e7350fbefa6b7cbf6975b93d686eb03f26d84840829ca93f03c93d3e0e25153fc5954a3fdf1b33bdc2f5a840a792a63d03c93d3e0e25153fc5954a3fd0ea2dbea6623c40615eea3f03c93d3e0e25153fc5954a3f686eb03f26d84840829ca93f5549a23d2ac27cbf74b80cbed0ea2dbea6623c40615eea3f5549a23d2ac27cbf74b80cbe0000000069914d40000000005549a23d2ac27cbf74b80cbe360bb23f17438840ab050d3f35d8ca3ec516ec3ed1424b3f2ea80abdeb51ca40b3f2803d35d8ca3ec516ec3ed1424b3f730bbe3e1a3b7f40dbba9b3f35d8ca3ec516ec3ed1424b3f360bb23f17438840ab050d3f85b1453bf19d6dbfba82bebe730bbe3e1a3b7f40dbba9b3f85b1453bf19d6dbfba82bebe000000001a2f8f400000000085b1453bf19d6dbfba82bebe730bbe3e1a3b7f40dbba9b3f59d40ebedd9ad63ee2aa653f2ea80abdeb51ca40b3f2803d59d40ebedd9ad63ee2aa653f3e0c34bfa95081409f2b833f59d40ebedd9ad63ee2aa653f730bbe3e1a3b7f40dbba9b3fa34fb03c750f6dbfcaf4c0be3e0c34bfa95081409f2b833fa34fb03c750f6dbfcaf4c0be000000001a2f8f4000000000a34fb03c750f6dbfcaf4c0be3e0c34bfa95081409f2b833fe9e13ebfdb71dd3e4fc5013f2ea80abdeb51ca40b3f2803de9e13ebfdb71dd3e4fc5013fba93a2bf9a0e8540f5dfba3de9e13ebfdb71dd3e4fc5013f3e0c34bfa95081409f2b833f8b595e3e0d8e71bf1b0580beba93a2bf9a0e8540f5dfba3d8b595e3e0d8e71bf1b0580be000000001a2f8f40000000008b595e3e0d8e71bf1b0580beba93a2bf9a0e8540f5dfba3d39655bbf0881f93efc832bbe2ea80abdeb51ca40b3f2803d39655bbf0881f93efc832bbec8c584bf03c9844077fb8fbf39655bbf0881f93efc832bbeba93a2bf9a0e8540f5dfba3d5aee7a3e5ed077bf0be15b3dc8c584bf03c9844077fb8fbf5aee7a3e5ed077bf0be15b3d000000001a2f8f40000000005aee7a3e5ed077bf0be15b3dc8c584bf03c9844077fb8fbfafaaaebd5e08023fd36e5bbf2ea80abdeb51ca40b3f2803dafaaaebd5e08023fd36e5bbf3c9b3a3e5b218840bc9597bfafaaaebd5e08023fd36e5bbfc8c584bf03c9844077fb8fbfe7eabe3d4de579bf4fbe483e3c9b3a3e5b218840bc9597bfe7eabe3d4de579bf4fbe483e000000001a2f8f4000000000e7eabe3d4de579bf4fbe483e3c9b3a3e5b218840bc9597bfb098883ed297043f431050bf2ea80abdeb51ca40b3f2803db098883ed297043f431050bf84e7ad3f07198940746147bfb098883ed297043f431050bf3c9b3a3e5b218840bc9597bf851313bd10c47bbfe2c9353e84e7ad3f07198940746147bf851313bd10c47bbfe2c9353e000000001a2f8f4000000000851313bd10c47bbfe2c9353e84e7ad3f07198940746147bf40ee523f660c113fc5ff11bc2ea80abdeb51ca40b3f2803d40ee523f660c113fc5ff11bc360bb23f17438840ab050d3f40ee523f660c113fc5ff11bc84e7ad3f07198940746147bf070f17beb02a7dbf5ab881bc360bb23f17438840ab050d3f070f17beb02a7dbf5ab881bc000000001a2f8f4000000000070f17beb02a7dbf5ab881bc33fb003e4d19b140355d693f956f9ebe7121e13e9ed8573fa7363ebcae47e740be74b3bc956f9ebe7121e13e9ed8573f593f37bf50e4a7401cb0403f956f9ebe7121e13e9ed8573f33fb003e4d19b140355d693feb54ae3e59ef6ebfa1fde8bd593f37bf50e4a7401cb0403feb54ae3e59ef6ebfa1fde8bd000000001b2fb34000000000eb54ae3e59ef6ebfa1fde8bd593f37bf50e4a7401cb0403fbbf83ebfd917e93e04dcf83ea7363ebcae47e740be74b3bcbbf83ebfd917e93e04dcf83e3b8297bf319bac4032a9d3bdbbf83ebfd917e93e04dcf83e593f37bf50e4a7401cb0403f1ce73f3e642072bfccc787be3b8297bf319bac4032a9d3bd1ce73f3e642072bfccc787be000000001b2fb340000000001ce73f3e642072bfccc787be3b8297bf319bac4032a9d3bdac3e13bf137bcc3e05c336bfa7363ebcae47e740be74b3bcac3e13bf137bcc3e05c336bfc0bd03bf9903a5402e6d46bfac3e13bf137bcc3e05c336bf3b8297bf319bac4032a9d3bde589f03d4dd464bf2988dd3ec0bd03bf9903a5402e6d46bfe589f03d4dd464bf2988dd3e000000001b2fb34000000000e589f03d4dd464bf2988dd3ec0bd03bf9903a5402e6d46bf033563be42c9c23ec6d565bfa7363ebcae47e740be74b3bc033563be42c9c23ec6d565bf1f22963e77d9a940272569bf033563be42c9c23ec6d565bfc0bd03bf9903a5402e6d46bf6c616b3ee62467bfc3f6b93e1f22963e77d9a940272569bf6c616b3ee62467bfc3f6b93e000000001b2fb340000000006c616b3ee62467bfc3f6b93e1f22963e77d9a940272569bf21fa063f985ad93e856e3cbfa7363ebcae47e740be74b3bc21fa063f985ad93e856e3cbfb5cd6d3f5a9daf4065f2b3be21fa063f985ad93e856e3cbf1f22963e77d9a940272569bfaa8f9d3a39c573bf745b9c3eb5cd6d3f5a9daf4065f2b3beaa8f9d3a39c573bf745b9c3e000000001b2fb34000000000aa8f9d3a39c573bf745b9c3eb5cd6d3f5a9daf4065f2b3be5c00623fa26dee3e82a47b3da7363ebcae47e740be74b3bc5c00623fa26dee3e82a47b3d3ecd733f6752aa40b3c8103f5c00623fa26dee3e82a47b3db5cd6d3f5a9daf4065f2b3be9c0439be03fe77bf94302ebe3ecd733f6752aa40b3c8103f9c0439be03fe77bf94302ebe000000001b2fb340000000009c0439be03fe77bf94302ebe3ecd733f6752aa40b3c8103f2f9de13ed5d3eb3e963f453fa7363ebcae47e740be74b3bc2f9de13ed5d3eb3e963f453f33fb003e4d19b140355d693f2f9de13ed5d3eb3e963f453f3ecd733f6752aa40b3c8103f09a485be65fb76bff0bf06bd33fb003e4d19b140355d693f09a485be65fb76bff0bf06bd000000001b2fb3400000000009a485be65fb76bff0bf06bd
+  m_CompressedMesh:
+    m_Vertices:
+      m_NumItems: 0
+      m_Range: 0
+      m_Start: 0
+      m_Data: 
+      m_BitSize: 0
+    m_UV:
+      m_NumItems: 0
+      m_Range: 0
+      m_Start: 0
+      m_Data: 
+      m_BitSize: 0
+    m_Normals:
+      m_NumItems: 0
+      m_Range: 0
+      m_Start: 0
+      m_Data: 
+      m_BitSize: 0
+    m_Tangents:
+      m_NumItems: 0
+      m_Range: 0
+      m_Start: 0
+      m_Data: 
+      m_BitSize: 0
+    m_Weights:
+      m_NumItems: 0
+      m_Data: 
+      m_BitSize: 0
+    m_NormalSigns:
+      m_NumItems: 0
+      m_Data: 
+      m_BitSize: 0
+    m_TangentSigns:
+      m_NumItems: 0
+      m_Data: 
+      m_BitSize: 0
+    m_FloatColors:
+      m_NumItems: 0
+      m_Range: 0
+      m_Start: 0
+      m_Data: 
+      m_BitSize: 0
+    m_BoneIndices:
+      m_NumItems: 0
+      m_Data: 
+      m_BitSize: 0
+    m_Triangles:
+      m_NumItems: 0
+      m_Data: 
+      m_BitSize: 0
+    m_UVInfo: 0
+  m_LocalAABB:
+    m_Center: {x: -0.13265562, y: 3.41375, z: -0.16082907}
+    m_Extent: {x: 2.474086, y: 3.81375, z: 2.617037}
+  m_MeshUsageFlags: 0
+  m_CookingOptions: 30
+  m_BakedConvexCollisionMesh: 
+  m_BakedTriangleCollisionMesh: 
+  'm_MeshMetrics[0]': 1
+  'm_MeshMetrics[1]': 1
+  m_MeshOptimizationFlags: 1
+  m_StreamData:
+    serializedVersion: 2
+    offset: 0
+    size: 0
+    path: 
+  m_MeshLodInfo:
+    serializedVersion: 2
+    m_LodSelectionCurve:
+      serializedVersion: 1
+      m_LodSlope: 0
+      m_LodBias: 0
+    m_NumLevels: 1
+    m_SubMeshes:
+    - serializedVersion: 2
+      m_Levels:
+      - serializedVersion: 1
+        m_IndexStart: 0
+        m_IndexCount: 0
+    - serializedVersion: 2
+      m_Levels:
+      - serializedVersion: 1
+        m_IndexStart: 0
+        m_IndexCount: 0

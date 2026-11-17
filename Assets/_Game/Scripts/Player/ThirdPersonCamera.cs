@@ -42,7 +42,9 @@ namespace ForestSoldier.Player
         [SerializeField] private float recoverSpeed = 6f;
 
         private Camera cam;
+        private SoldierMotor motor;
         private float aimBlend;
+        private float crouchDrop;
         private float currentDistance;
 
         public float Yaw { get; set; }
@@ -56,6 +58,7 @@ namespace ForestSoldier.Player
         private void Awake()
         {
             cam = GetComponent<Camera>();
+            if (target != null) motor = target.GetComponent<SoldierMotor>();
             if (target != null && input == null) input = target.GetComponent<SoldierInput>();
         }
 
@@ -70,6 +73,7 @@ namespace ForestSoldier.Player
         {
             target = t;
             input = i;
+            motor = t != null ? t.GetComponent<SoldierMotor>() : null;
         }
 
         private void Update()
@@ -87,6 +91,7 @@ namespace ForestSoldier.Player
             bool aiming = input != null && input.Aim;
             float step = aimBlendTime > 0f ? Time.deltaTime / aimBlendTime : 1f;
             aimBlend = Mathf.MoveTowards(aimBlend, aiming ? 1f : 0f, step);
+            crouchDrop = Mathf.MoveTowards(crouchDrop, motor != null ? motor.CrouchDrop : 0f, 4f * Time.deltaTime);
             Place(Time.deltaTime);
         }
 
@@ -109,7 +114,7 @@ namespace ForestSoldier.Player
         {
             float blend = Mathf.SmoothStep(0f, 1f, aimBlend);
             Quaternion rot = Quaternion.Euler(Pitch, Yaw, 0f);
-            Vector3 pivot = target.position + pivotOffset;
+            Vector3 pivot = target.position + pivotOffset - Vector3.up * crouchDrop;
 
             // Shoulder offset first, so a wall beside the player pulls it in.
             Vector3 shoulderWanted = pivot + rot * Vector3.Lerp(shoulderOffset, aimShoulderOffset, blend);

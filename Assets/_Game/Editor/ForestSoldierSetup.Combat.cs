@@ -5,7 +5,6 @@ using ForestSoldier.Combat;
 using ForestSoldier.Player;
 using ForestSoldier.UI;
 using UnityEditor;
-using UnityEditor.Animations;
 using UnityEngine;
 
 namespace ForestSoldier.EditorTools
@@ -15,18 +14,17 @@ namespace ForestSoldier.EditorTools
     {
         private const string AudioDir = Root + "/Audio";
         private const string WeaponArtDir = Root + "/Art/Weapons";
-        private const string OverlayControllerPath = Root + "/Animations/SoldierOverlay.controller";
         private const string TargetPrefabPath = Root + "/Prefabs/Targets/TargetDummy.prefab";
         private const string ImpactPrefabPath = Root + "/Prefabs/Player/ImpactBurst.prefab";
         private const float FiringLineX = 16f;
 
         private static readonly string[] AimRigRoots = { "Spineupper", "HandWrist.L", "HandWrist.R", "PoleArm.L", "PoleArm.R", "SMGBone" };
 
-        private static AudioClip shotClip, dryClip, clackClip, pingClip;
+        private static AudioClip shotClip, dryClip, reloadSound, clackClip, pingClip;
+        private static AudioClip[] shotVariants;
         private static Material flashMat, tracerMat, impactMat, targetMat, targetMarkMat;
         private static ParticleSystem impactPrefab;
-        private static AnimatorController overlayController;
-        private static AnimationClip reloadClip;
+        private static AnimationClip reloadClip, standingAimClip, crouchingAimClip;
         private static GameObject targetPrefab;
 
         private static int HitMask => ~(1 << PlayerLayerIndex) & ~(1 << 2);
@@ -37,7 +35,8 @@ namespace ForestSoldier.EditorTools
             BuildEffectMaterials();
             BuildImpactPrefab();
             reloadClip = clips["Reload(1)"];
-            BuildOverlayController(clips["Rifle Aiming Idle"], reloadClip);
+            standingAimClip = clips["Rifle Aim Idle"];
+            crouchingAimClip = clips["Idle Crouching Aiming"];
             BuildTargetPrefab();
         }
 
@@ -101,7 +100,14 @@ namespace ForestSoldier.EditorTools
             }
 
             shotClip = WriteClip("Gunshot", Gunshot(), rate);
+            shotVariants = AssetDatabase.FindAssets("t:AudioClip", new[] { AudioDir })
+                .Select(AssetDatabase.GUIDToAssetPath)
+                .Where(path => Path.GetFileNameWithoutExtension(path).StartsWith("Gunshot_", System.StringComparison.Ordinal))
+                .OrderBy(path => path, System.StringComparer.Ordinal)
+                .Select(path => AssetDatabase.LoadAssetAtPath<AudioClip>(path))
+                .ToArray();
             dryClip = WriteClip("DryFire", Click(0.05f, 2600f, 0.004f), rate);
+            reloadSound = AssetDatabase.LoadAssetAtPath<AudioClip>($"{AudioDir}/MagazineReload.wav");
             clackClip = WriteClip("ReloadClack", Click(0.12f, 900f, 0.012f), rate);
             pingClip = WriteClip("HitConfirm", Ping(), rate);
         }
@@ -245,18 +251,6 @@ namespace ForestSoldier.EditorTools
             {
                 Object.DestroyImmediate(go);
             }
-        }
-
-        private static void BuildOverlayController(AnimationClip hold, AnimationClip reload)
-        {
-            AssetDatabase.DeleteAsset(OverlayControllerPath);
-            overlayController = AnimatorController.CreateAnimatorControllerAtPath(OverlayControllerPath);
-            var sm = overlayController.layers[0].stateMachine;
-            var idle = sm.AddState("AimHold");
-            idle.motion = hold;
-            sm.defaultState = idle;
-            sm.AddState("Reload").motion = reload;
-            EditorUtility.SetDirty(overlayController);
         }
 
         // ---------------------------------------------------------------- targets
@@ -424,8 +418,9 @@ namespace ForestSoldier.EditorTools
 
             var so = new SerializedObject(overlay);
             so.FindProperty("proxyModel").objectReferenceValue = model;
-            so.FindProperty("overlayController").objectReferenceValue = overlayController;
             so.FindProperty("model").objectReferenceValue = modelInstance.transform;
+            so.FindProperty("standingAimClip").objectReferenceValue = standingAimClip;
+            so.FindProperty("crouchingAimClip").objectReferenceValue = crouchingAimClip;
             so.FindProperty("reloadClip").objectReferenceValue = reloadClip;
             so.ApplyModifiedPropertiesWithoutUndo();
 
@@ -448,7 +443,12 @@ namespace ForestSoldier.EditorTools
             so.FindProperty("impactPrefab").objectReferenceValue = impactPrefab;
             so.FindProperty("source").objectReferenceValue = audio;
             so.FindProperty("shot").objectReferenceValue = shotClip;
+            var variants = so.FindProperty("shotVariants");
+            variants.arraySize = shotVariants.Length;
+            for (int i = 0; i < shotVariants.Length; i++)
+                variants.GetArrayElementAtIndex(i).objectReferenceValue = shotVariants[i];
             so.FindProperty("dryFire").objectReferenceValue = dryClip;
+            so.FindProperty("reloadSound").objectReferenceValue = reloadSound;
             so.FindProperty("reloadClack").objectReferenceValue = clackClip;
             so.FindProperty("hitConfirm").objectReferenceValue = pingClip;
             so.ApplyModifiedPropertiesWithoutUndo();

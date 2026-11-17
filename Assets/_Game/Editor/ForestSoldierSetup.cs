@@ -38,8 +38,8 @@ namespace ForestSoldier.EditorTools
         private const float TargetHeight = 1.8f;
 
         // Clip speeds measured by Tools/Blender/export_soldier.py (m/s after ImportScale).
-        private const float RunForwardClipSpeed = 1.58f;
-        private const float WalkBackClipSpeed = 0.82f;
+        private const float RunForwardClipSpeed = 1.66f;
+        private const float WalkBackClipSpeed = 1.08f;
         private const float StrafeClipSpeed = 2.57f;
         private const float DiagonalClipSpeed = 1.54f; // 1.09 forward + 1.09 sideways
 
@@ -50,13 +50,14 @@ namespace ForestSoldier.EditorTools
             "Loop Walk Forward Left", "Aim Walk Back", "Aim Walk Forward Left", "Aim Walk Forward Right",
             "Crouched Strafe Run", "Walk Crouching Forward", "Walk Crouching Right",
             "Walking", "Walking Backwards", "Crouch Walking",
+            "Rifle Aim Idle", "Idle Crouching Aiming",
         };
 
         [MenuItem("Forest Soldier/Rebuild Prototype Assets")]
         public static void BuildFromMenu()
         {
             if (!EditorUtility.DisplayDialog("Rebuild prototype assets",
-                    "This overwrites Soldier.controller, SoldierOverlay.controller, Player.prefab, TargetDummy.prefab, ImpactBurst.prefab, the generated sounds and ForestRange.unity. Continue?",
+                    "This overwrites Soldier.controller, Player.prefab, TargetDummy.prefab, ImpactBurst.prefab, the generated sounds and ForestRange.unity. Continue?",
                     "Rebuild", "Cancel")) return;
             BuildAll();
         }
@@ -109,20 +110,20 @@ namespace ForestSoldier.EditorTools
 
         private static Dictionary<string, Material> CreateSoldierMaterials()
         {
-            var lit = Shader.Find("Universal Render Pipeline/Lit");
+            var unlit = Shader.Find("Universal Render Pipeline/Unlit");
             Material Make(string name, string texPath)
             {
                 string path = $"{Root}/Materials/{name}.mat";
                 var mat = AssetDatabase.LoadAssetAtPath<Material>(path);
                 if (mat == null)
                 {
-                    mat = new Material(lit) { name = name };
+                    mat = new Material(unlit) { name = name };
                     AssetDatabase.CreateAsset(mat, path);
                 }
-                mat.shader = lit;
+                mat.shader = unlit;
                 mat.SetTexture("_BaseMap", AssetDatabase.LoadAssetAtPath<Texture2D>(texPath));
                 mat.SetColor("_BaseColor", Color.white);
-                mat.SetFloat("_Smoothness", 0.2f);
+                mat.SetFloat("_Cull", 0f);
                 EditorUtility.SetDirty(mat);
                 return mat;
             }
@@ -175,9 +176,6 @@ namespace ForestSoldier.EditorTools
 
         private static AnimatorController CreateController(Dictionary<string, AnimationClip> clips)
         {
-            AnimationClip Clip(string n) =>
-                clips.TryGetValue(n, out var c) ? c : throw new KeyNotFoundException($"Missing clip '{n}' in {FbxPath}");
-
             AssetDatabase.DeleteAsset(ControllerPath);
             var ac = AnimatorController.CreateAnimatorControllerAtPath(ControllerPath);
             ac.AddParameter("MoveX", AnimatorControllerParameterType.Float);
@@ -188,6 +186,15 @@ namespace ForestSoldier.EditorTools
 
             // Base layer: one 2D freeform blend tree, positions in m/s (local X right, Z forward).
             ac.CreateBlendTreeInController("Locomotion", out BlendTree tree, 0);
+            ConfigureStandingLocomotion(tree, clips);
+            AddCrouchLocomotion(ac, clips);
+
+            EditorUtility.SetDirty(ac);
+            return ac;
+        }
+
+        private static void ConfigureStandingLocomotion(BlendTree tree, Dictionary<string, AnimationClip> clips)
+        {
             tree.blendType = BlendTreeType.FreeformDirectional2D;
             tree.blendParameter = "MoveX";
             tree.blendParameterY = "MoveZ";
@@ -196,22 +203,44 @@ namespace ForestSoldier.EditorTools
             float diag = run * 0.7071f;
             var children = new List<(AnimationClip clip, Vector2 pos, float timeScale)>
             {
-                (Clip("Rifle Aiming Idle"), Vector2.zero, 1f),
-                (Clip("Loop Run Forward"), new Vector2(0f, run), run / RunForwardClipSpeed),
-                (Clip("Sprint Forward"), new Vector2(0f, sprint), 1f),
-                (Clip("Aim Walk Back"), new Vector2(0f, -back), back / WalkBackClipSpeed),
-                (Clip("Loop Strafe Right"), new Vector2(run, 0f), run / StrafeClipSpeed),
-                (Clip("Loop Strafe Left"), new Vector2(-run, 0f), run / StrafeClipSpeed),
-                (Clip("Aim Walk Forward Right"), new Vector2(diag, diag), run / DiagonalClipSpeed),
-                (Clip("Aim Walk Forward Left"), new Vector2(-diag, diag), run / DiagonalClipSpeed),
+                (clips["Rifle Aiming Idle"], Vector2.zero, 1f),
+                (clips["Walking"], new Vector2(0f, SoldierMotor.WalkSpeed), 1f),
+                (clips["Loop Run Forward"], new Vector2(0f, run), run / RunForwardClipSpeed),
+                (clips["Sprint Forward"], new Vector2(0f, sprint), 1f),
+                (clips["Walking Backwards"], new Vector2(0f, -back), back / WalkBackClipSpeed),
+                (clips["Loop Strafe Right"], new Vector2(run, 0f), run / StrafeClipSpeed),
+                (clips["Loop Strafe Left"], new Vector2(-run, 0f), run / StrafeClipSpeed),
+                (clips["Aim Walk Forward Right"], new Vector2(diag, diag), run / DiagonalClipSpeed),
+                (clips["Aim Walk Forward Left"], new Vector2(-diag, diag), run / DiagonalClipSpeed),
             };
+            tree.children = System.Array.Empty<ChildMotion>();
             foreach (var c in children) tree.AddChild(c.clip, c.pos);
             var motions = tree.children;
             for (int i = 0; i < motions.Length; i++) motions[i].timeScale = children[i].timeScale;
             tree.children = motions;
+        }
 
-            EditorUtility.SetDirty(ac);
-            return ac;
+        private static void AddCrouchLocomotion(AnimatorController controller, Dictionary<string, AnimationClip> clips)
+        {
+            controller.AddParameter("Crouching", AnimatorControllerParameterType.Bool);
+            var standing = controller.layers[0].stateMachine.defaultState;
+            var crouching = controller.CreateBlendTreeInController("Crouch Locomotion", out BlendTree tree, 0);
+            tree.blendType = BlendTreeType.Simple1D;
+            tree.blendParameter = "Speed";
+            tree.useAutomaticThresholds = false;
+            tree.AddChild(clips["Idle Crouching Aiming"], 0f);
+            tree.AddChild(clips["Crouch Walking"], SoldierMotor.CrouchMoveSpeed);
+
+            var enter = standing.AddTransition(crouching);
+            enter.hasExitTime = false;
+            enter.hasFixedDuration = true;
+            enter.duration = 0.10f;
+            enter.AddCondition(AnimatorConditionMode.If, 0f, "Crouching");
+            var exit = crouching.AddTransition(standing);
+            exit.hasExitTime = false;
+            exit.hasFixedDuration = true;
+            exit.duration = 0.10f;
+            exit.AddCondition(AnimatorConditionMode.IfNot, 0f, "Crouching");
         }
 
         // ---------------------------------------------------------------- prefab
@@ -375,21 +404,12 @@ namespace ForestSoldier.EditorTools
             RenderSettings.ambientEquatorColor = new Color(0.45f, 0.5f, 0.45f);
             RenderSettings.ambientGroundColor = new Color(0.25f, 0.24f, 0.2f);
 
-            var ground = ColorMat("Proto_Ground", new Color(0.36f, 0.45f, 0.3f));
             var grey = ColorMat("Proto_Grey", new Color(0.55f, 0.55f, 0.53f));
-            var orange = ColorMat("Proto_Landmark", new Color(0.9f, 0.45f, 0.15f));
             var blue = ColorMat("Proto_Blue", new Color(0.25f, 0.4f, 0.65f));
 
-            // Milestone 1 test ground: a flat field with slopes, steps, walls and
-            // a low roof to exercise movement and camera collision. Milestone 3
-            // replaces this with the forest terrain.
-            var env = new GameObject("TestGround").transform;
-            var floor = GameObject.CreatePrimitive(PrimitiveType.Plane);
-            floor.name = "Floor";
-            floor.transform.SetParent(env, false);
-            floor.transform.localScale = new Vector3(24f, 1f, 24f); // 240 m square
-            floor.GetComponent<MeshRenderer>().sharedMaterial = ground;
-            floor.isStatic = true;
+            // The training yard: slopes, steps, walls and a low roof for movement
+            // and camera checks, on flat cleared ground (y = 0) inside the forest.
+            var env = new GameObject("TrainingYard").transform;
 
             Block("Ramp_20deg", env, new Vector3(-8f, 1.0f, 12f), new Vector3(4f, 0.3f, 6f), new Vector3(-20f, 0f, 0f), grey);
             Block("Ramp_40deg", env, new Vector3(-2f, 1.6f, 12f), new Vector3(4f, 0.3f, 5f), new Vector3(-40f, 0f, 0f), grey);
@@ -402,9 +422,6 @@ namespace ForestSoldier.EditorTools
             Block("LowRoof_Post_A", env, new Vector3(6f, 1.1f, -6f), new Vector3(0.4f, 2.2f, 0.4f), Vector3.zero, grey);
             Block("LowRoof_Post_B", env, new Vector3(10f, 1.1f, -6f), new Vector3(0.4f, 2.2f, 0.4f), Vector3.zero, grey);
             Block("LowRoof", env, new Vector3(8f, 2.35f, -8f), new Vector3(5f, 0.3f, 5f), Vector3.zero, blue);
-            Block("Landmark_Tower", env, new Vector3(0f, 6f, 40f), new Vector3(2f, 12f, 2f), Vector3.zero, orange);
-            Block("Landmark_West", env, new Vector3(-40f, 3f, 0f), new Vector3(2f, 6f, 2f), Vector3.zero, orange);
-            Block("Landmark_East", env, new Vector3(40f, 3f, 30f), new Vector3(2f, 6f, 2f), Vector3.zero, blue);
             for (int i = 0; i < 8; i++)
             {
                 float a = i * Mathf.PI / 4f;
@@ -438,6 +455,7 @@ namespace ForestSoldier.EditorTools
             weaponSo.FindProperty("cameraRig").objectReferenceValue = rig;
             weaponSo.ApplyModifiedPropertiesWithoutUndo();
             AddHud(player, rig);
+            BuildForest(light, cam);
 
             EditorSceneManager.SaveScene(scene, ScenePath);
 
