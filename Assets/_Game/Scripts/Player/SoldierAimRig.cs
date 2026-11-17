@@ -33,13 +33,28 @@ namespace ForestSoldier.Player
         private float weight;
         private float recoilPitch, recoilYaw;
         private Transform head, rifle;
+        private Transform selectedSight, supportGrip, rearGrip, stock;
+        private bool verticalSupport, preserveAnimatedGrip;
+        private GrenadeLauncher launcher;
         private (Transform shoulder, Transform elbow, Transform wrist) leftArm, rightArm;
+        private (Transform palm, Transform fingers, Transform thumb) leftHand, rightHand;
         // The sight rail is above the bore. The head pivot is near the base of the goggles.
         private const float SightHeight = 0.075f;
         private static readonly Vector3 EyeOffset = new(0.035f, 0.08f, 0.07f);
         public Vector3 EyePosition => head != null ? head.position + transform.rotation * EyeOffset
             : transform.position + Vector3.up * 1.65f;
-        public Vector3 SightPosition => muzzle.position + muzzle.up * SightHeight;
+        public Vector3 SightPosition => selectedSight != null ? selectedSight.position : muzzle.position + muzzle.up * SightHeight;
+
+        public void SetWeaponSight(Transform sight, Transform support, Transform grip, Transform butt, bool vertical)
+        {
+            selectedSight = sight;
+            supportGrip = support;
+            rearGrip = grip;
+            stock = butt;
+            verticalSupport = vertical;
+            preserveAnimatedGrip = grip != null && grip.name == "StockGrip";
+            recoilPitch = recoilYaw = 0f;
+        }
 
         public float Weight => weight;
 
@@ -54,17 +69,25 @@ namespace ForestSoldier.Player
             if (motor == null) motor = GetComponent<SoldierMotor>();
             if (weapon == null) weapon = GetComponent<HitscanWeapon>();
             if (overlay == null) overlay = GetComponent<UpperBodyOverlay>();
+            launcher = GetComponent<GrenadeLauncher>();
             if (chest == null || upperRoots == null) return;
             var bones = chest.GetComponentsInChildren<Transform>();
             head = System.Array.Find(bones, bone => bone.name == "head");
             rifle = System.Array.Find(upperRoots, bone => bone != null && bone.name == "SMGBone");
             leftArm = FindArm(".L");
             rightArm = FindArm(".R");
+            var allBones = transform.GetComponent<SoldierAnimator>().Animator.GetComponentsInChildren<Transform>();
+            leftHand = FindHand(".L");
+            rightHand = FindHand(".R");
 
             (Transform, Transform, Transform) FindArm(string side) =>
                 (System.Array.Find(bones, bone => bone.name == "ArmUpper" + side),
                  System.Array.Find(bones, bone => bone.name == "ArmLower" + side),
                  System.Array.Find(upperRoots, bone => bone != null && bone.name == "HandWrist" + side));
+            (Transform, Transform, Transform) FindHand(string side) =>
+                (System.Array.Find(allBones, bone => bone.name == "Hand" + side + ".001"),
+                 System.Array.Find(allBones, bone => bone.name == "Fingers" + side),
+                 System.Array.Find(allBones, bone => bone.name == "ThumbBase" + side));
         }
 
         public void ApplyAim()
@@ -99,6 +122,8 @@ namespace ForestSoldier.Player
             Rotate(blendFix, pivot);
 
             AlignRifle(1f - overlayWeight);
+            if (rearGrip != null && !preserveAnimatedGrip && overlayWeight > 0f)
+                rifle.position += (HandContact(rightHand) - rearGrip.position - muzzle.right * 0.025f) * overlayWeight;
 
             if (recoilPitch < 0.01f && Mathf.Abs(recoilYaw) < 0.01f) return;
             Quaternion recoil = Quaternion.AngleAxis(recoilYaw, Vector3.up) *
@@ -114,6 +139,7 @@ namespace ForestSoldier.Player
 
             Vector3 start = muzzle.position;
             Vector3 forward = muzzle.forward;
+            Vector3 sightOffset = Quaternion.Inverse(muzzle.rotation) * (SightPosition - start);
             if (Vector3.ProjectOnPlane(forward, Vector3.up).sqrMagnitude < 0.01f) return;
             Quaternion desiredRotation = Quaternion.LookRotation(forward, Vector3.up);
             Vector3 desiredPosition = start;
@@ -124,13 +150,22 @@ namespace ForestSoldier.Player
                 Vector3 toTarget = weapon.AimPoint - eye;
                 // The crosshair is on the bore line. Offset its origin below
                 // the eye so the physical sights sit on the eye line.
-                Vector3 bore = toTarget + desiredRotation * Vector3.up * SightHeight;
+                Vector3 lateralSight = new(sightOffset.x, sightOffset.y, 0f);
+                Vector3 bore = toTarget + desiredRotation * lateralSight;
                 if (Vector3.ProjectOnPlane(bore.normalized, Vector3.up).sqrMagnitude > 0.01f)
                 {
                     desiredRotation = Quaternion.LookRotation(Vector3.Slerp(forward, bore.normalized, weight), Vector3.up);
-                    Vector3 sightAligned = eye + desiredRotation * new Vector3(0f, -SightHeight, depth);
+                    Vector3 sightAligned = eye + desiredRotation * new Vector3(-sightOffset.x, -sightOffset.y, depth);
                     desiredPosition = Vector3.Lerp(start, sightAligned, weight);
                 }
+            }
+            if (stock != null && !preserveAnimatedGrip)
+            {
+                Vector3 stockOffset = Quaternion.Inverse(muzzle.rotation) * (stock.position - start);
+                // Seat the butt at the padded shoulder in all three axes.
+                Vector3 shoulder = rightArm.shoulder.position + transform.right * 0.08f
+                    - transform.forward * 0.015f + Vector3.up * 0.025f;
+                desiredPosition = shoulder - desiredRotation * stockOffset;
             }
 
             // The hands and rifle are siblings in this rig. Move them together
@@ -140,15 +175,66 @@ namespace ForestSoldier.Player
             {
                 Quaternion rotation = Quaternion.Slerp(Quaternion.identity, turn, poseWeight);
                 Vector3 position = Vector3.Lerp(start, desiredPosition, poseWeight);
-                Vector3 left = position + rotation * (leftArm.wrist.position - start);
-                Vector3 right = position + rotation * (rightArm.wrist.position - start);
+                Quaternion gunRotation = rotation * muzzle.rotation;
+                Vector3 forwardAxis = gunRotation * Vector3.forward;
+                Vector3 upAxis = gunRotation * Vector3.up;
+                Vector3 rightAxis = gunRotation * Vector3.right;
+                Quaternion leftTurn = HandTurn(leftHand, forwardAxis, verticalSupport ? rightAxis : -upAxis);
+                Quaternion rightTurn = HandTurn(rightHand, forwardAxis, rightAxis);
+                Vector3 leftContact = supportGrip != null ? supportGrip.position : HandContact(leftHand);
+                Vector3 rightContact = rearGrip != null ? rearGrip.position : HandContact(rightHand);
+                float supportDrop = launcher != null && launcher.Available ? launcher.SupportDrop : 0.025f;
+                leftContact = position + rotation * (leftContact - start)
+                    + (verticalSupport ? -rightAxis * 0.025f : -upAxis * supportDrop);
+                rightContact = position + rotation * (rightContact - start) + rightAxis * 0.025f;
+                Quaternion leftRotation = Quaternion.Slerp(Quaternion.identity, leftTurn, poseWeight);
+                Quaternion rightRotation = preserveAnimatedGrip ? rotation
+                    : Quaternion.Slerp(Quaternion.identity, rightTurn, poseWeight);
+                Vector3 left = leftContact - leftRotation * (HandContact(leftHand) - leftArm.wrist.position);
+                Vector3 right = preserveAnimatedGrip
+                    ? position + rotation * (rightArm.wrist.position - start)
+                    : rightContact - rightRotation * (HandContact(rightHand) - rightArm.wrist.position);
                 if (!CanReach(leftArm, left) || !CanReach(rightArm, right)) continue;
 
                 rifle.SetPositionAndRotation(position + rotation * (rifle.position - start), rotation * rifle.rotation);
-                PlaceArm(leftArm, left, rotation);
-                PlaceArm(rightArm, right, rotation);
+                PlaceArm(leftArm, left, leftRotation);
+                PlaceArm(rightArm, right, rightRotation);
+                CurlFingers(leftHand.fingers, verticalSupport ? rightAxis : upAxis, poseWeight);
+                if (!preserveAnimatedGrip) CurlFingers(rightHand.fingers, -rightAxis, poseWeight);
                 return;
             }
+        }
+
+        public Vector3 SupportHandPosition => HandContact(leftHand);
+        public Vector3 FiringHandPosition => HandContact(rightHand);
+
+        private Vector3 HandContact((Transform palm, Transform fingers, Transform thumb) hand)
+        {
+            // Measured from the skinned glove vertices. The palm surface is offset
+            // from the bone plane; the midpoint of the bones leaves the glove floating.
+            Vector3 along = hand.fingers.position - hand.palm.position;
+            Vector3 across = hand.thumb.position - hand.palm.position;
+            bool left = hand.palm == leftHand.palm;
+            Vector3 coordinates = left
+                ? (verticalSupport ? new Vector3(0.515f, -0.333f, 0.224f) : new Vector3(0.5f, -0.053f, 0.228f))
+                : (preserveAnimatedGrip ? new Vector3(0.515f, -0.315f, -0.259f) : new Vector3(0.502f, -0.333f, -0.219f));
+            return hand.palm.position + along * coordinates.x + across * coordinates.y
+                + Vector3.Cross(across, along).normalized * along.magnitude * coordinates.z;
+        }
+
+        private static Quaternion HandTurn((Transform palm, Transform fingers, Transform thumb) hand,
+            Vector3 forward, Vector3 normal)
+        {
+            Vector3 along = hand.fingers.position - hand.palm.position;
+            Vector3 across = hand.thumb.position - hand.palm.position;
+            Quaternion basis = Quaternion.LookRotation(along, Vector3.Cross(across, along));
+            return Quaternion.LookRotation(forward, normal) * Quaternion.Inverse(basis);
+        }
+
+        private static void CurlFingers(Transform fingers, Vector3 direction, float amount)
+        {
+            Quaternion curl = Quaternion.FromToRotation(fingers.up, direction);
+            fingers.rotation = Quaternion.Slerp(Quaternion.identity, curl, amount) * fingers.rotation;
         }
 
         private static bool CanReach((Transform shoulder, Transform elbow, Transform wrist) arm, Vector3 target)

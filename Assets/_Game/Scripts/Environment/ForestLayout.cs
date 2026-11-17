@@ -20,6 +20,15 @@ namespace ForestSoldier.Environment
         /// <summary>Flat cleared areas (x, z, width, depth) where the ground is exactly y = 0.</summary>
         public static readonly Rect TrainingYard = Rect.MinMaxRect(-30f, -35f, 30f, 30f);
         public static readonly Rect RangeLane = Rect.MinMaxRect(10f, -12f, 110f, 12f);
+        /// <summary>A cleared hamlet on the west trail with destructible houses.</summary>
+        public static readonly Rect Hamlet = Rect.MinMaxRect(-104f, -20f, -54f, 24f);
+
+        /// <summary>House centres (x, z) and yaw; doors (local -Z) face the trail through the middle.</summary>
+        public static readonly Vector3[] Houses =
+        {
+            new Vector3(-94f, 13f, -90f), new Vector3(-94f, -7f, -90f),
+            new Vector3(-64f, 13f, 90f), new Vector3(-62f, -9f, 90f),
+        };
         /// <summary>Metres over which a clearing blends into the rolling forest floor.</summary>
         public const float ClearingFalloff = 14f;
         /// <summary>No trees within this distance of a clearing's edge.</summary>
@@ -79,6 +88,6 @@ namespace ForestSoldier.Environment
         }
 
         public static float DistanceToClearing(Vector2 p) =>
-            Mathf.Min(DistanceOutside(TrainingYard, p), DistanceOutside(RangeLane, p));
+            Mathf.Min(Mathf.Min(DistanceOutside(TrainingYard, p), DistanceOutside(RangeLane, p)), DistanceOutside(Hamlet, p));
     }
 }

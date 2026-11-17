@@ -63,7 +63,9 @@ namespace ForestSoldier.Combat
         public Vector3 AimPoint { get; private set; }
         public Transform Muzzle => muzzle;
         public int ShotsFired { get; private set; }
-        public bool TriggerHeld => input != null && input.Fire;
+        public bool TriggerHeld => input != null && input.Fire && !Suppressed;
+        /// <summary>Another weapon (the under-barrel launcher) has the trigger.</summary>
+        public bool Suppressed { get; set; }
 
         public event Action<ShotResult> Fired;
         public event Action<ShotResult, IDamageable, DamageResult> HitDamageable;
@@ -125,6 +127,12 @@ namespace ForestSoldier.Combat
                 TryReload();
             }
 
+            if (Suppressed)
+            {
+                triggerWasDown = input.Fire;
+                return;
+            }
+
             bool trigger = input.Fire;
             bool pressed = trigger && !triggerWasDown;
             triggerWasDown = trigger;
@@ -165,12 +173,28 @@ namespace ForestSoldier.Combat
             return true;
         }
 
+        public void CancelReload()
+        {
+            if (!IsReloading) return;
+            IsReloading = false;
+            reloadCommitted = false;
+            if (overlay != null) overlay.Stop();
+            if (effects != null) effects.StopReload();
+        }
+
+        public void SetAmmunition(int rounds)
+        {
+            Ammo = Mathf.Clamp(rounds, 0, magazineSize);
+            shotBloom = 0f;
+            nextShotTime = Time.time;
+        }
+
         private void FireOnce()
         {
             Ammo--;
             ShotsFired++;
 
-            Ray ray = cameraRig.AimRay;
+            Ray ray = cameraRig.FiringRay;
             ray.direction = Spread(ray.direction, CurrentSpread);
             ShotResult shot = HitscanResolver.Resolve(ray, muzzle.position, ShooterPoint, range, hitMask);
 

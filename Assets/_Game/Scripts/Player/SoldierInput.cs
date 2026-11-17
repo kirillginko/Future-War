@@ -38,15 +38,21 @@ namespace ForestSoldier.Player
         public bool ReloadRequested { get; set; }
         /// <summary>Set on the press; the consumer clears it.</summary>
         public bool ResetTargetsRequested { get; set; }
+        /// <summary>Set on the press (G / Y); the grenade launcher clears it.</summary>
+        public bool SwitchLauncherRequested { get; set; }
         public bool FrontViewRequested { get; set; }
         public bool FirstPersonRequested { get; set; }
+        public int WeaponSlotRequested { get; set; } = -1;
+        public bool CycleWeaponRequested { get; set; }
         public bool CursorLocked { get; private set; }
         /// <summary>The last input came from a gamepad (for prompts, rumble and aim slowdown).</summary>
         public bool UsingGamepad { get; set; }
 
         private InputActionMap map;
-        private InputAction move, look, lookStick, sprint, aim, crouch, crouchToggle, fire, reload, resetTargets, pause;
+        private InputAction move, look, lookStick, sprint, aim, crouch, crouchToggle, fire, reload, resetTargets, switchLauncher, pause;
         private InputAction frontView, firstPersonView;
+        private InputAction[] weaponSlots;
+        private InputAction cycleWeapon;
         private bool fireHeldSinceCapture;
         private bool crouchLatched;
 
@@ -69,9 +75,13 @@ namespace ForestSoldier.Player
             fire = map.FindAction("Fire", true);
             reload = map.FindAction("Reload", true);
             resetTargets = map.FindAction("ResetTargets", true);
+            switchLauncher = map.FindAction("SwitchLauncher", true);
             pause = map.FindAction("Pause", true);
             frontView = map.FindAction("FrontView", true);
             firstPersonView = map.FindAction("FirstPersonView", true);
+            weaponSlots = new[] { map.FindAction("Weapon1", true), map.FindAction("Weapon2", true),
+                map.FindAction("Weapon3", true), map.FindAction("Weapon4", true) };
+            cycleWeapon = map.FindAction("CycleWeapon", true);
         }
 
         private void OnEnable()
@@ -132,8 +142,15 @@ namespace ForestSoldier.Player
             Fire = CursorLocked && !fireHeldSinceCapture && fire.IsPressed();
             if (CursorLocked && reload.WasPressedThisFrame()) ReloadRequested = true;
             if (resetTargets.WasPressedThisFrame()) ResetTargetsRequested = true;
+            if (CursorLocked && switchLauncher.WasPressedThisFrame()) SwitchLauncherRequested = true;
             if (CursorLocked && frontView.WasPressedThisFrame()) FrontViewRequested = true;
             if (CursorLocked && firstPersonView.WasPressedThisFrame()) FirstPersonRequested = true;
+            if (CursorLocked)
+            {
+                for (int i = 0; i < weaponSlots.Length; i++)
+                    if (weaponSlots[i].WasPressedThisFrame()) WeaponSlotRequested = i;
+                if (cycleWeapon.WasPressedThisFrame()) CycleWeaponRequested = true;
+            }
         }
 
         public void SetCursorLocked(bool locked)

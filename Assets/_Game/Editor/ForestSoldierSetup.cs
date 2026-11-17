@@ -73,7 +73,9 @@ namespace ForestSoldier.EditorTools
             AssetDatabase.DeleteAsset(MaskPath); // earlier builds made an aim layer mask; aim is baked into the clips now
             var controller = CreateController(clips);
             BuildCombatAssets(clips);
+            ConfigureWeaponModels();
             BuildWalkerAssets(clips, model);
+            BuildDestructionAssets();
             var prefab = CreatePlayerPrefab(model, controller);
             CreateScene(prefab);
             AssetDatabase.SaveAssets();
@@ -348,6 +350,7 @@ namespace ForestSoldier.EditorTools
                 so.ApplyModifiedPropertiesWithoutUndo();
 
                 AddCombat(root, modelInstance, model);
+                AddWeaponLoadout(root, modelInstance);
                 AddFootsteps(modelInstance);
 
                 foreach (var t in root.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = PlayerLayerIndex;
@@ -461,6 +464,7 @@ namespace ForestSoldier.EditorTools
             AddHud(player, rig);
             BuildForest(light, cam);
             PlaceWalkers();
+            PlaceHouses(cam);
 
             EditorSceneManager.SaveScene(scene, ScenePath);
 

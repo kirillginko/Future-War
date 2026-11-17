@@ -74,6 +74,9 @@ namespace ForestSoldier.UI
             for (int i = 0; i < walkers.Length; i++) walkers[i] = WalkerNPC.All[i];
             foreach (var w in walkers) w.ResetWalker();
             foreach (var fx in FindObjectsByType<WeaponEffects>(FindObjectsSortMode.None)) fx.ClearBlood();
+            ForestSoldier.Destruction.DestructibleStructure.RebuildAll();
+            foreach (var ex in FindObjectsByType<ExplosionEffect>(FindObjectsSortMode.None)) ex.ClearScorches();
+            foreach (var gl in FindObjectsByType<GrenadeLauncher>(FindObjectsSortMode.None)) gl.Restock();
         }
     }
 }

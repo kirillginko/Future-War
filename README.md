@@ -19,11 +19,14 @@ Unity Hub → Add → this folder. Open `Assets/_Game/Scenes/ForestRange.unity` 
 | Toggle front view | V | Left Bumper |
 | Toggle first person | C | Click right stick |
 | Reload | R | X |
+| Select weapon | 1–4 | Y / Triangle cycles weapons |
 | Reset targets | T | View |
 | Pause | Escape (click to resume) | Menu (press again to resume) |
 | Jump | Space (no clip, does nothing) | A (same) |
 
 Front view lets you watch the soldier fire while keeping the weapon aimed in the gameplay direction. In first person, hold Aim to look down the rifle's iron sights.
+
+Weapon slots are 1 Soldier SMG, 2 PP-19 Bizon, 3 PP-19-01, and 4 FAMAS F1. Each keeps its own magazine count. Switching weapons cancels the current reload. The three added models share the prototype's firing rate, magazine capacity, sounds and reload animation, with separate muzzle, sight, palm-grip and stock contacts. The stocks seat at the right shoulder; both arms refit to the grips, including the PP-19-01's vertical foregrip and the Bizon's launcher underneath. The imported lengths are 0.66 m (Bizon), 0.69 m (PP-19-01), and 0.757 m (FAMAS). Their proportions are preserved. The original suppressed gun retains its animated firing-hand pose; only its support hand is refitted around the barrel. Imported stocks seat at the shoulder in all three axes. The FAMAS sight marker is measured at its rear aperture. First-person shots follow the displayed camera after the weapon pose; the crosshair remains visible while using the sights.
 
 
 ## The soldier asset
@@ -158,6 +161,64 @@ Milestone 4 tests:
 - **Controller (7 tests):** stick movement and look, the response curve, the triggers, the sprint and crouch toggles, Menu pause, View reset, X reload, and prompts following the last device.
 
 The whole suite is 38 tests: 35 run, and the 3 screenshot tests need `FOREST_SOLDIER_SHOTS=1`.
+
+## Destructible houses, grenade launcher, casings
+
+**Houses (BattleBit-style destruction).**
+- **Where:** four houses stand in the **hamlet**, a clearing on the west trail (`ForestLayout.Hamlet`).
+- **How each is built:** `ForestSoldierSetup.Destruction` pre-fractures every house into 165–190 staggered wall blocks and roof slabs. All of them go into **one skinned mesh** with one bone per fragment (weight 1), so a house is one renderer, one material and one draw call, intact or in pieces. All four share a single palette-texture material.
+- **What a blast does:** `DestructibleStructure.ExplodeAt` detaches the fragments within 55% of the blast radius. Each detached fragment gets a Rigidbody and an explosion impulse. A neighbour graph (built in the editor) then finds anything no longer connected to the ground, and that falls too, so knocking out walls drops the roof.
+- **Cleanup:** debris that has come to rest (or after 20 s) loses its Rigidbody and stays as static rubble. While pieces fly, the mesh's bounds are updated by hand, so it never needs `updateWhenOffscreen`.
+- **Reset:** T / View rebuilds every house.
+
+**Yard and range structures.** The same system (`FractureBlock` + `BuildFractured`) turns the training yard's three walls, its eight pillars, the low roof with its two posts, and the range's firing bench, cover wall, cover crate and backstop into destructible structures:
+- **In place:** after the scene is built they're swapped one for one, keeping their names.
+- **Sizes:** each is one skinned mesh, from 14 fragments (bench) to 347 (backstop).
+- **The low roof:** it and its posts are one structure, so blowing the posts drops the roof.
+- **Left solid:** the ramps and steps, which the movement tests rely on.
+
+**Grenade launcher (the Bizon's under-barrel tube, 40 mm).**
+- **Switch to it:** **G** on the keyboard, **RB** on the controller. Fire launches a round; it reloads itself from 8 spare (shown as `1 / 8  40mm`).
+- **Where it fits:** there's no added model. Rounds leave from the front of the tube already under the Bizon's barrel (the model's `Mag` part), 6 cm behind and 3.7 cm below its `Muzzle` marker (`GrenadeLauncher.tubeOffset`). It's available only while a loadout weapon with "Bizon" in its name is selected; switching weapons puts it away.
+- **Aiming:** the arc is solved so the round lands on the crosshair (the low arc if in range, otherwise 45°).
+- **Flight:** rounds are simulated as a sphere cast along the arc each frame, with no rigidbodies, so they can't tunnel. They arm after 6 m; a hit before that is a dud.
+- **The blast:** 7 m radius, up to 220 damage with a steep falloff. Walls shield whoever is behind them. It breaks houses, pushes loose debris, and comes with fire, smoke, sparks, dirt, a light flash, a 3D boom, and camera shake (`CameraShake`).
+
+**Ragdolls (blast deaths).**
+- **When it happens:** a walker killed by a grenade goes limp instead of playing a death animation. `WalkerRagdoll` adds 11 rigidbodies with capsule or sphere colliders and character joints (pelvis, chest, head, upper and lower arms and legs). It then throws them away from the blast and up, scaled by distance, with spin.
+- **The rig problem:** the rig hangs the hands, feet, IK poles and gun off the root bone, so for the ragdoll they're re-parented onto the forearms, shins and right hand. Everything is recorded and put back exactly on reset.
+- **Settling:** after 8 s a body that has stopped moving goes kinematic, so a pile of bodies costs no physics.
+- **Bullet kills** still play "Dying" or "Death From Back Headshot".
+- **Reset:** T / View stands everyone back up and walking.
+
+**Bigger explosions.**
+- **What's in each blast:** on top of the fireball, smoke, sparks and dirt, there's a two-frame core flash, a flat shockwave ring racing out along the ground, a low dust ring that slows as it spreads, glowing embers on short trails, rock chunks that bounce and settle (mesh particles with world collision), and a dark smoke column that keeps rising for 5–8 s.
+- **Scorch marks:** each blast on the ground leaves a scorch mark that fades over 45 s. Reset wipes them.
+
+**Bullet travel.**
+- **The streak:** every round draws a glowing streak (`WeaponEffects`, "Bullet travel") that flies from the muzzle to the hit at 350 m/s (`bulletSpeed`), 4.5 m long and 5 cm wide.
+- **Timing:** the sparks or blood appear when the streak arrives. Damage, hit markers and sounds are still instant.
+- **Glow:** the tracer material has an HDR tint, so bloom catches it.
+
+**Shell casings.**
+- **One particle system:** every casing is a particle in a single mesh-particle system, one GPU-instanced draw, with no Rigidbodies or GameObjects. Each shot emits one from the ejection port with spin and sideways velocity.
+- **Collision:** the particle system's own world collision (High quality, about a 7 mm radius) bounces them off the ground.
+- **Lifetime:** they lie where they land for 2 minutes, or until the 400-casing ring buffer recycles the oldest.
+
+Tests: `SoldierDestructionTests` (16).
+- Each house is one skinned mesh with a bone per fragment.
+- A blast breaks only the wall near it, and nothing attached is left floating.
+- Knocking out the walls drops the roof.
+- Debris freezes into rubble and reset rebuilds it.
+- The launch solver lands within 0.3 m.
+- A launcher round blows a hole where you aim, the rifle stays quiet in launcher mode, and the launcher reloads.
+- A blast kills a nearby walker, but a wall shields one indoors.
+- Casings come to rest on the ground, all in one particle system.
+- The yard and range structures are destructible: a blast opens the yard wall, and taking out the posts drops the low roof.
+- Bullets travel: damage is instant, but the impact waits until the round gets there.
+- A blast death ragdolls: the body is thrown up and away, lands, and reset restores the walker.
+- Bullet kills still play the death animations.
+- Every explosion layer fires, it scorches the ground, the rocks land on the ground, and reset clears the scorches.
 
 ## Inspector wiring
 

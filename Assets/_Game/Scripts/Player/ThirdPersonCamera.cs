@@ -85,6 +85,10 @@ namespace ForestSoldier.Player
         /// <summary>The shooting ray stays forward when the camera switches to the front.</summary>
         public Ray AimRay => IsFrontView || IsFirstPerson ? gameplayAimRay : new Ray(transform.position, transform.forward);
 
+        /// <summary>Use the presented sight picture for shots, after the aim rig has posed.
+        /// Front view continues to use the forward gameplay ray.</summary>
+        public Ray FiringRay => IsFirstPerson ? new Ray(transform.position, transform.forward) : AimRay;
+
         private void Awake()
         {
             cam = GetComponent<Camera>();
@@ -244,12 +248,14 @@ namespace ForestSoldier.Player
 
             Vector3 eye = aimRig.EyePosition;
             Vector3 sight = aimRig.SightPosition;
-            Vector3 alongRail = muzzle.forward;
-            float depth = Mathf.Clamp(Vector3.Dot(sight - eye, alongRail), 0.25f, 1.2f);
-            Vector3 onSightLine = sight - alongRail * depth;
+            // Keep look direction under player control. Following the posed barrel
+            // rotation feeds aim correction and animation sway back into the camera.
+            Vector3 look = gameplayAimRay.direction;
+            float depth = Mathf.Clamp(Vector3.Dot(sight - eye, look), 0.25f, 1.2f);
+            Vector3 onSightLine = sight - look * depth;
             float blend = Mathf.SmoothStep(0f, 1f, Mathf.Min(aimBlend, aimRig.Weight));
             transform.SetPositionAndRotation(Vector3.Lerp(gameplayAimRay.origin, onSightLine, blend),
-                Quaternion.Slerp(Quaternion.LookRotation(gameplayAimRay.direction, Vector3.up), muzzle.rotation, blend));
+                Quaternion.LookRotation(look, Vector3.up));
         }
 
         private void SetBodyHidden(bool hidden)

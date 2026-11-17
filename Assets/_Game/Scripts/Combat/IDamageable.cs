@@ -31,14 +31,23 @@ namespace ForestSoldier.Combat
         public readonly Vector3 Normal;
         public readonly Vector3 Direction;
         public readonly Object Source;
+        /// <summary>Blast push (m/s of velocity at the victim); 0 for bullets.</summary>
+        public readonly float Impulse;
+        /// <summary>Where a blast came from (valid when Impulse > 0).</summary>
+        public readonly Vector3 BlastCentre;
 
         public DamageInfo(float amount, Vector3 point, Vector3 normal, Vector3 direction, Object source)
+            : this(amount, point, normal, direction, source, 0f, point) { }
+
+        public DamageInfo(float amount, Vector3 point, Vector3 normal, Vector3 direction, Object source, float impulse, Vector3 blastCentre)
         {
             Amount = amount;
             Point = point;
             Normal = normal;
             Direction = direction;
             Source = source;
+            Impulse = impulse;
+            BlastCentre = blastCentre;
         }
     }
 

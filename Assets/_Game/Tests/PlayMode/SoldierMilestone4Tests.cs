@@ -128,7 +128,9 @@ namespace ForestSoldier.Tests
             ShotResult near = default;
             float nearAngle = 0f, nearSpread = 0f;
             yield return AimedShot(bench.position + Vector3.up * 0.2f, (s, a, sp) => { near = s; nearAngle = a; nearSpread = sp; });
-            Assert.AreEqual(bench, near.Info.collider.transform, $"point blank hit {near.Info.collider?.name}");
+            // The bench is a destructible structure now: the hit lands on one of its fragments.
+            Assert.AreEqual(bench, near.Info.collider.GetComponentInParent<ForestSoldier.Destruction.DestructibleStructure>()?.transform,
+                $"point blank hit {near.Info.collider?.name}");
             Assert.LessOrEqual(nearAngle, nearSpread + 1.5f, "point blank: the muzzle sits below the camera, so allow a little parallax");
         }
 

@@ -165,6 +165,71 @@ namespace ForestSoldier.Tests
         // ------------------------------------------------------------ in the range
 
         [UnityTest]
+        public IEnumerator EveryFirstPersonSightHitsTheVisibleCrosshair()
+        {
+            var floor = Box(new Vector3(500f, 48.5f, 0f), new Vector3(30f, 1f, 30f));
+            var target = Box(new Vector3(500f, 50.5f, 20f), Vector3.one * 0.12f);
+            try
+            {
+                yield return Teleport(new Vector3(500f, 49.05f, 0f), 0f);
+                input.FirstPersonRequested = true;
+                input.Aim = true;
+                // Remove random spread so this tests camera/shot alignment exactly.
+                typeof(HitscanWeapon).GetField("aimSpread", System.Reflection.BindingFlags.Instance |
+                    System.Reflection.BindingFlags.NonPublic).SetValue(weapon, 0f);
+                var loadout = player.GetComponent<WeaponLoadout>();
+                ShotResult lastShot = default;
+                Vector3 shotViewport = default;
+                weapon.Fired += shot =>
+                {
+                    lastShot = shot;
+                    shotViewport = rig.Camera.WorldToViewportPoint(shot.AimPoint);
+                };
+                foreach (bool crouch in new[] { false, true })
+                foreach (float distance in new[] { 10f, 40f })
+                for (int slot = 0; slot < loadout.Count; slot++)
+                {
+                    input.Crouch = crouch;
+                    loadout.Select(slot);
+                    weapon.SetAmmunition(weapon.MagazineSize);
+                    target.transform.position = new Vector3(500f, crouch ? 50f : 50.6f, distance);
+                    Physics.SyncTransforms();
+                    yield return Frames(40);
+                    // Aim using the displayed camera, as the player does. This also
+                    // exercises the difference between the raw and presented rays.
+                    for (int frame = 0; frame < 40; frame++)
+                    {
+                        Vector3 direction = (target.transform.position - rig.transform.position).normalized;
+                        float yaw = Mathf.Atan2(direction.x, direction.z) * Mathf.Rad2Deg;
+                        float pitch = -Mathf.Asin(direction.y) * Mathf.Rad2Deg;
+                        Vector3 rendered = rig.transform.forward;
+                        rig.Yaw += Mathf.DeltaAngle(Mathf.Atan2(rendered.x, rendered.z) * Mathf.Rad2Deg, yaw);
+                        rig.Pitch += pitch + Mathf.Asin(rendered.y) * Mathf.Rad2Deg;
+                        yield return null;
+                    }
+                    Assert.IsTrue(rig.ShowsIronSights);
+                    Assert.IsTrue(hud.GetComponentsInChildren<RectTransform>(true)
+                        .First(t => t.name == "CrosshairDot").gameObject.activeInHierarchy);
+                    int before = weapon.ShotsFired;
+                    input.Fire = true;
+                    yield return null;
+                    input.Fire = false;
+                    Assert.AreEqual(before + 1, weapon.ShotsFired);
+                    Assert.AreEqual(target.GetComponent<Collider>(), lastShot.Info.collider,
+                        $"{loadout.SelectedName}, crouch={crouch}, distance={distance}");
+                    Assert.That(shotViewport.x, Is.EqualTo(0.5f).Within(0.001f));
+                    Assert.That(shotViewport.y, Is.EqualTo(0.5f).Within(0.001f));
+                    yield return Frames(8);
+                }
+            }
+            finally
+            {
+                Object.Destroy(floor);
+                Object.Destroy(target);
+            }
+        }
+
+        [UnityTest]
         public IEnumerator AimedBurstDropsTheFifteenMetreTarget()
         {
             var t = Target("Target_15m");
@@ -294,8 +359,9 @@ namespace ForestSoldier.Tests
                 void CheckShot(ShotResult shot)
                 {
                     var muzzle = weapon.Muzzle;
-                    Vector3 eye = head.position + player.rotation * new Vector3(0.035f, 0.08f, 0.07f);
-                    Vector3 sight = muzzle.position + muzzle.up * 0.075f;
+                    var aim = player.GetComponent<SoldierAimRig>();
+                    Vector3 eye = aim.EyePosition;
+                    Vector3 sight = aim.SightPosition;
                     sightError = Vector3.ProjectOnPlane(eye - sight, muzzle.forward).magnitude;
                     cant = Vector3.Angle(muzzle.up, Vector3.ProjectOnPlane(Vector3.up, muzzle.forward));
                 }

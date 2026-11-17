@@ -16,19 +16,28 @@ namespace ForestSoldier.Combat
         [SerializeField] private float flashTime = 0.045f;
         [SerializeField] private Vector2 flashScale = new Vector2(0.8f, 1.25f);
 
-        [Header("Tracers")]
+        [Header("Bullet travel")]
+        [Tooltip("Every round draws a glowing streak that flies from the muzzle to the hit; its impact (sparks, blood) shows when it arrives. Damage is still instant.")]
         [SerializeField] private Material tracerMaterial;
-        [SerializeField] private Color tracerColor = new Color(1f, 0.85f, 0.5f, 0.9f);
-        [SerializeField] private float tracerWidth = 0.02f;
-        [SerializeField] private float tracerLife = 0.06f;
-        [Tooltip("Tracer starts this far down the barrel line so it reads as a streak, not a beam.")]
-        [SerializeField] private float tracerLength = 6f;
-        [SerializeField] private int tracerPool = 12;
+        [SerializeField] private Color tracerColor = new Color(1f, 0.82f, 0.45f, 1f);
+        [SerializeField] private float tracerWidth = 0.05f;
+        [Tooltip("Visual bullet speed (m/s). 9 mm leaves a Bizon at about 380.")]
+        [SerializeField] private float bulletSpeed = 350f;
+        [SerializeField] private float streakLength = 4.5f;
+        [SerializeField] private int tracerPool = 24;
 
         [Header("Impacts")]
         [SerializeField] private ParticleSystem impactPrefab;
         [SerializeField] private int impactPool = 8;
         [SerializeField] private int particlesPerImpact = 10;
+
+        [Header("Shell casings")]
+        [Tooltip("One mesh-particle system for every casing: one instanced draw, world collision, no rigidbodies.")]
+        [SerializeField] private ParticleSystem casings;
+        [Tooltip("Ejection port, from the muzzle: back along the barrel, to the right, up.")]
+        [SerializeField] private Vector3 ejectOffset = new Vector3(0.03f, 0.02f, -0.24f);
+        [SerializeField] private Vector2 ejectSpeedRight = new Vector2(2.0f, 3.0f);
+        [SerializeField] private Vector2 ejectSpeedUp = new Vector2(1.4f, 2.2f);
 
         [Header("Blood (flesh hits)")]
         [SerializeField] private ParticleSystem bloodPrefab;
@@ -65,8 +74,14 @@ namespace ForestSoldier.Combat
         private class Tracer
         {
             public LineRenderer Line;
-            public float Age;
+            public Vector3 Start, Dir;
+            public float Length, Head;
+            public bool Arrived, PendingImpact, Flesh, Killed;
+            public ShotResult Shot;
         }
+
+        public int TracersInFlight { get; private set; }
+        public int ImpactsShown { get; private set; }
 
         private readonly List<Tracer> tracers = new List<Tracer>();
         private readonly List<ParticleSystem> impacts = new List<ParticleSystem>();
@@ -85,6 +100,9 @@ namespace ForestSoldier.Combat
         private int nextSplat;
         private MaterialPropertyBlock splatBlock;
         private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
+        private ParticleSystem.EmitParams casingParams;
+        private ParticleSystem casingInstance;
+        private Vector3 muzzleVelocity;
 
         public int ActiveSplats { get; private set; }
         private int nextTracer, nextImpact;
@@ -112,7 +130,7 @@ namespace ForestSoldier.Combat
                 lr.receiveShadows = false;
                 lr.numCapVertices = 2;
                 lr.enabled = false;
-                tracers.Add(new Tracer { Line = lr, Age = float.MaxValue });
+                tracers.Add(new Tracer { Line = lr, Arrived = true });
             }
 
             if (impactPrefab != null)
@@ -137,6 +155,15 @@ namespace ForestSoldier.Combat
                     main.playOnAwake = false;
                     bloods.Add(ps);
                 }
+            }
+
+            if (casings != null)
+            {
+                // World-space system parked at the origin; each casing is emitted at its own position.
+                casingInstance = Instantiate(casings);
+                casingInstance.name = "Casings";
+                casingInstance.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
+                casingParams = new ParticleSystem.EmitParams { applyShapeToPosition = false };
             }
 
             if (splatMaterial != null)
@@ -176,28 +203,26 @@ namespace ForestSoldier.Combat
             }
             SetFlash(true);
 
-            // tracer: a streak that ends at the impact
+            // The round flies: a streak from the muzzle to the hit; the impact waits for it.
             var t = tracers[nextTracer];
             nextTracer = (nextTracer + 1) % tracers.Count;
-            Vector3 end = shot.End;
-            Vector3 dir = end - muzzle.position;
-            float len = dir.magnitude;
-            Vector3 start = len > tracerLength ? end - dir / len * tracerLength : muzzle.position;
-            t.Line.SetPosition(0, start);
-            t.Line.SetPosition(1, end);
+            if (!t.Arrived && t.PendingImpact) ShowImpact(t); // pool wrapped: don't lose that impact
+            Vector3 toEnd = shot.End - muzzle.position;
+            t.Start = muzzle.position;
+            t.Length = toEnd.magnitude;
+            t.Dir = t.Length > 1e-4f ? toEnd / t.Length : muzzle.forward;
+            t.Head = 0f;
+            t.Arrived = false;
+            t.Shot = shot;
+            t.Flesh = flesh;
+            t.Killed = result.Killed;
+            t.PendingImpact = shot.Hit;
+            t.Line.SetPosition(0, t.Start);
+            t.Line.SetPosition(1, t.Start);
             t.Line.enabled = true;
-            t.Age = 0f;
             SetTracerAlpha(t, 1f);
 
-            if (flesh) Bleed(shot, (shot.End - muzzle.position).normalized, result.Killed);
-            else if (shot.Hit && impacts.Count > 0)
-            {
-                var ps = impacts[nextImpact];
-                nextImpact = (nextImpact + 1) % impacts.Count;
-                ps.transform.SetPositionAndRotation(shot.Info.point + shot.Info.normal * 0.01f,
-                    Quaternion.LookRotation(shot.Info.normal));
-                ps.Emit(particlesPerImpact);
-            }
+            EjectCasing(muzzle);
 
             Play(ChooseShot(), shotVolume);
             if (result.Landed)
@@ -205,6 +230,23 @@ namespace ForestSoldier.Combat
                 if (flesh) Play(result.Killed && fleshKill != null ? fleshKill : fleshHit, hitVolume * 1.3f);
                 else Play(hitConfirm, hitVolume);
             }
+        }
+
+        // ------------------------------------------------------------ casings
+
+        public int CasingCount => casingInstance != null ? casingInstance.particleCount : 0;
+
+        private void EjectCasing(Transform muzzle)
+        {
+            if (casingInstance == null) return;
+            Vector3 right = muzzle.right, up = muzzle.up, fwd = muzzle.forward;
+            casingParams.position = muzzle.position + right * ejectOffset.x + up * ejectOffset.y + fwd * ejectOffset.z;
+            casingParams.velocity = right * Random.Range(ejectSpeedRight.x, ejectSpeedRight.y)
+                                    + up * Random.Range(ejectSpeedUp.x, ejectSpeedUp.y)
+                                    - fwd * Random.Range(0.1f, 0.5f) + muzzleVelocity;
+            casingParams.rotation3D = new Vector3(Random.Range(0f, 360f), Random.Range(0f, 360f), Random.Range(0f, 360f));
+            casingParams.angularVelocity3D = new Vector3(Random.Range(-900f, 900f), Random.Range(-900f, 900f), Random.Range(-900f, 900f));
+            casingInstance.Emit(casingParams, 1);
         }
 
         // ------------------------------------------------------------ blood
@@ -311,6 +353,12 @@ namespace ForestSoldier.Combat
             reloadClacks.Add(Time.time + seconds * 0.82f);
         }
 
+        public void StopReload()
+        {
+            reloadClacks.Clear();
+            if (source != null) source.Stop();
+        }
+
         private void Update()
         {
             float dt = Time.deltaTime;
@@ -320,18 +368,50 @@ namespace ForestSoldier.Combat
                 flashTimer -= dt;
                 if (flashTimer <= 0f) SetFlash(false);
             }
+            int inFlight = 0;
             foreach (var t in tracers)
             {
                 if (!t.Line.enabled) continue;
-                t.Age += dt;
-                if (t.Age >= tracerLife) t.Line.enabled = false;
-                else SetTracerAlpha(t, 1f - t.Age / tracerLife);
+                t.Head += bulletSpeed * dt;
+                if (!t.Arrived && t.Head >= t.Length)
+                {
+                    t.Arrived = true;
+                    if (t.PendingImpact) ShowImpact(t);
+                }
+                // Head stops at the hit; the tail keeps coming and the streak shrinks into it.
+                float head = Mathf.Min(t.Head, t.Length);
+                float tail = Mathf.Clamp(t.Head - streakLength, 0f, t.Length);
+                if (tail >= t.Length - 1e-3f)
+                {
+                    t.Line.enabled = false;
+                    continue;
+                }
+                t.Line.SetPosition(0, t.Start + t.Dir * tail);
+                t.Line.SetPosition(1, t.Start + t.Dir * head);
+                if (!t.Arrived) inFlight++;
             }
+            TracersInFlight = inFlight;
             for (int i = reloadClacks.Count - 1; i >= 0; i--)
             {
                 if (Time.time < reloadClacks[i]) continue;
                 Play(reloadClack, 0.55f);
                 reloadClacks.RemoveAt(i);
+            }
+        }
+
+        private void ShowImpact(Tracer t)
+        {
+            t.PendingImpact = false;
+            ImpactsShown++;
+            var shot = t.Shot;
+            if (t.Flesh) Bleed(shot, t.Dir, t.Killed);
+            else if (impacts.Count > 0)
+            {
+                var ps = impacts[nextImpact];
+                nextImpact = (nextImpact + 1) % impacts.Count;
+                ps.transform.SetPositionAndRotation(shot.Info.point + shot.Info.normal * 0.01f,
+                    Quaternion.LookRotation(shot.Info.normal));
+                ps.Emit(particlesPerImpact);
             }
         }
 

@@ -399,9 +399,11 @@ namespace ForestSoldier.EditorTools
             so.FindProperty("reloadClack").objectReferenceValue = clackClip;
             so.FindProperty("hitConfirm").objectReferenceValue = pingClip;
             WireBlood(so);
+            WireCasings(so);
             so.ApplyModifiedPropertiesWithoutUndo();
 
             root.AddComponent<GamepadRumble>(); // finds input and weapon on the same object
+            AddLauncher(root, muzzle, audio);
 
             so = new SerializedObject(weapon);
             so.FindProperty("input").objectReferenceValue = root.GetComponent<SoldierInput>();

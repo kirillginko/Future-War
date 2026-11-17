@@ -53,6 +53,9 @@ namespace ForestSoldier.NPC
         public float MaxHealth => maxHealth;
         public bool IsAlive => Health > 0f;
         public bool DiedFromBehind { get; private set; }
+        /// <summary>Killed by a blast: went limp and flew instead of playing a death animation.</summary>
+        public bool Ragdolled => ragdoll != null && ragdoll.Active;
+        public WalkerRagdoll Ragdoll => ragdoll;
         public float CurrentSpeed { get; private set; }
         public SurfaceKind Surface => SurfaceKind.Flesh;
 
@@ -63,11 +66,16 @@ namespace ForestSoldier.NPC
         private Color[] baseColors;
         private Transform player;
         private Terrain terrain;
+        private WalkerRagdoll ragdoll;
+        [Tooltip("A blast push above this (m/s) ragdolls the body instead of playing a death animation.")]
+        [SerializeField] private float ragdollImpulse = 1.5f;
 
         private void Awake()
         {
             Health = maxHealth;
             if (animator == null) animator = GetComponentInChildren<Animator>();
+            ragdoll = GetComponent<WalkerRagdoll>();
+            if (ragdoll == null) ragdoll = gameObject.AddComponent<WalkerRagdoll>();
             colliders = GetComponentsInChildren<Collider>(true);
             block = new MaterialPropertyBlock();
             if (flashRenderers == null) flashRenderers = Array.Empty<Renderer>();
@@ -213,7 +221,9 @@ namespace ForestSoldier.NPC
             // The round travels along info.Direction; if that's the way the walker faces, it came from behind.
             DiedFromBehind = Vector3.Dot(info.Direction, transform.forward) > 0f;
             foreach (var c in colliders) c.enabled = false;
-            if (animator != null)
+            if (info.Impulse > ragdollImpulse && ragdoll != null)
+                ragdoll.Activate(info.BlastCentre, info.Impulse); // blown off their feet
+            else if (animator != null)
             {
                 animator.SetFloat(SpeedId, 0f);
                 animator.SetTrigger(DiedFromBehind ? DieBackId : DieFrontId);
@@ -226,6 +236,7 @@ namespace ForestSoldier.NPC
             Health = maxHealth;
             pauseLeft = staggerLeft = flashLeft = 0f;
             CurrentSpeed = 0f;
+            if (ragdoll != null) ragdoll.Restore();
             foreach (var c in colliders) c.enabled = true;
             ApplyFlash(0f);
             if (animator != null)

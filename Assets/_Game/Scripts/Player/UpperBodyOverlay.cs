@@ -67,17 +67,21 @@ namespace ForestSoldier.Player
             foreach (var n in RootLevelUpper)
                 if (real.TryGetValue(n, out var a) && prox.TryGetValue(n, out var b)) rootLevel.Add((a, b));
             // Everything under the chest and the hands keeps the overlay clip's local pose.
-            AddDescendants(realChest, prox);
+            AddDescendants(realChest, proxyChest);
             foreach (var n in RootLevelUpper)
-                if (real.TryGetValue(n, out var a)) AddDescendants(a, prox);
+                if (real.TryGetValue(n, out var a) && prox.TryGetValue(n, out var b)) AddDescendants(a, b);
         }
 
-        private void AddDescendants(Transform realParent, Dictionary<string, Transform> prox)
+        private void AddDescendants(Transform realParent, Transform proxyParent)
         {
+            // Match hierarchy, not global names: attached gun meshes can share
+            // names with soldier meshes but must never receive their pose.
             foreach (Transform c in realParent)
             {
-                if (prox.TryGetValue(c.name, out var p)) locals.Add((c, p));
-                AddDescendants(c, prox);
+                var p = proxyParent.Find(c.name);
+                if (p == null) continue;
+                locals.Add((c, p));
+                AddDescendants(c, p);
             }
         }
 

@@ -42,6 +42,13 @@ namespace ForestSoldier.UI
         private float hitTimer;
         private Color hitTint;
         private Text ammoText, ammoHint, targetText, fpsText;
+        private Text weaponText;
+        private Text launcherText;
+        private WeaponLoadout loadout;
+        private GrenadeLauncher launcher;
+        private int shownLauncher = -2;
+        private int shownWeapon = -1;
+        private bool weaponPromptPad;
         private Image reloadBar, reloadBarBack;
         private float fpsSmoothed;
         private int shownAmmo = -1, shownDown = -1, shownTotal = -1, shownFps = -1, shownWalkersDown = -1;
@@ -73,6 +80,8 @@ namespace ForestSoldier.UI
         private void Awake()
         {
             if (input == null) input = FindFirstObjectByType<SoldierInput>();
+            if (weapon != null) loadout = weapon.GetComponent<WeaponLoadout>();
+            if (weapon != null) launcher = weapon.GetComponent<GrenadeLauncher>();
             font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             Build();
         }
@@ -132,6 +141,8 @@ namespace ForestSoldier.UI
 
             ammoText = NewText("Ammo", canvasRect, 54, TextAnchor.LowerRight, new Vector2(1f, 0f), new Vector2(-48f, 40f));
             ammoHint = NewText("AmmoHint", canvasRect, 22, TextAnchor.LowerRight, new Vector2(1f, 0f), new Vector2(-50f, 108f));
+            weaponText = NewText("Weapon", canvasRect, 24, TextAnchor.LowerRight, new Vector2(1f, 0f), new Vector2(-50f, 145f));
+            launcherText = NewText("Launcher", canvasRect, 20, TextAnchor.LowerRight, new Vector2(1f, 0f), new Vector2(-50f, 178f));
             reloadBarBack = NewImage("ReloadBack", canvasRect, new Color(0f, 0f, 0f, 0.45f));
             Anchor(reloadBarBack.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0f, -46f), new Vector2(120f, 5f));
             reloadBar = NewImage("Reload", reloadBarBack.rectTransform, new Color(1f, 1f, 1f, 0.85f));
@@ -215,7 +226,7 @@ namespace ForestSoldier.UI
         {
             float dt = Time.unscaledDeltaTime;
             var cam = cameraRig != null ? cameraRig.Camera : Camera.main;
-            bool showReticle = cameraRig == null || (!cameraRig.IsFrontView && !cameraRig.ShowsIronSights);
+            bool showReticle = cameraRig == null || !cameraRig.IsFrontView;
             if (crosshairDot.gameObject.activeSelf != showReticle)
             {
                 crosshairDot.gameObject.SetActive(showReticle);
@@ -246,8 +257,14 @@ namespace ForestSoldier.UI
 
             if (weapon != null)
             {
+                if (loadout != null && (shownWeapon != loadout.SelectedIndex || weaponPromptPad != Pad))
+                {
+                    shownWeapon = loadout.SelectedIndex;
+                    weaponPromptPad = Pad;
+                    weaponText.text = $"{shownWeapon + 1}  {loadout.SelectedName}   <size=18>{(Pad ? "Y / △" : "1–4")}</size>";
+                }
                 // Strings only change when the numbers do: no per-frame garbage.
-                if (weapon.Ammo != shownAmmo)
+                if (weapon.Ammo != shownAmmo && !(launcher != null && launcher.Active))
                 {
                     shownAmmo = weapon.Ammo;
                     ammoText.text = $"{weapon.Ammo} <size=30>/ {weapon.MagazineSize}</size>";
@@ -256,8 +273,30 @@ namespace ForestSoldier.UI
                 string hint = weapon.IsReloading ? "RELOADING"
                     : weapon.Ammo == 0 ? (Pad ? "(X)  RELOAD" : "R  RELOAD")
                     : weapon.Ammo <= weapon.MagazineSize / 4 ? (Pad ? "(X)  reload" : "R  reload") : "";
+                bool gl = launcher != null && launcher.Active;
+                if (gl) hint = launcher.Reloading ? "LOADING GRENADE" : !launcher.Loaded && launcher.Reserve <= 0 ? "NO GRENADES" : "";
                 if (!ReferenceEquals(hint, shownHint)) ammoHint.text = shownHint = hint;
-                reloadBarBack.gameObject.SetActive(weapon.IsReloading);
+                if (launcher != null)
+                {
+                    // One int captures everything the launcher lines show: redraw only when it changes.
+                    int key = !launcher.Available ? -1
+                        : (gl ? 1 : 2) * 10000 + launcher.Reserve * 10 + (launcher.Loaded ? 2 : 0) + (Pad ? 5 : 0);
+                    if (key != shownLauncher)
+                    {
+                        shownLauncher = key;
+                        if (gl)
+                        {
+                            ammoText.text = $"{(launcher.Loaded ? 1 : 0)} <size=30>/ {launcher.Reserve}  40mm</size>";
+                            ammoText.color = !launcher.Loaded && launcher.Reserve == 0 ? killColor : new Color(1f, 0.85f, 0.45f);
+                        }
+                        shownAmmo = -1; // the rifle's count redraws when the launcher is put away
+                        launcherText.text = !launcher.Available ? ""
+                            : gl ? (Pad ? "(RB)  back to rifle" : "G  back to rifle")
+                            : (Pad ? "(RB)  grenade launcher" : "G  grenade launcher");
+                    }
+                    if (gl) shownAmmo = -1;
+                }
+                reloadBarBack.gameObject.SetActive(weapon.IsReloading && !gl);
                 if (weapon.IsReloading)
                     reloadBar.rectTransform.sizeDelta = new Vector2(120f * weapon.ReloadProgress, 0f);
             }

@@ -68,6 +68,7 @@ MonoBehaviour:
   flashColor: {r: 1, g: 0.55, b: 0.45, a: 1}
   flashTime: 0.15
   giveWay: 1.4
+  ragdollImpulse: 1.5
 --- !u!136 &6684458988351024398
 CapsuleCollider:
   m_ObjectHideFlags: 0
