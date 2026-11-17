@@ -19,6 +19,15 @@ namespace ForestSoldier.Player
         public const float WalkSpeed = 0.99f;
         [SerializeField] private float sprintSpeed = 5.5f;
         [SerializeField] private float aimMoveSpeed = 1.8f;
+
+        [Header("Analog stick pace")]
+        [Tooltip("Stick deflection that reaches walking speed.")]
+        [Range(0.2f, 0.8f)] [SerializeField] private float stickWalkAt = 0.5f;
+        [Tooltip("Stick deflection that reaches the rifle run (the run clip's pace).")]
+        [Range(0.5f, 0.95f)] [SerializeField] private float stickRunAt = 0.78f;
+        [SerializeField] private float stickRunSpeed = 1.8f;
+        [Tooltip("At full tilt the stick runs flat out (sprint speed).")]
+        [SerializeField] private bool fullTiltSprints = true;
         public const float CrouchMoveSpeed = 1.22f;
         [SerializeField] private float crouchHeight = 1.35f;
         [Tooltip("Speed multiplier when moving backwards while aiming.")]
@@ -82,7 +91,10 @@ namespace ForestSoldier.Player
             IsAiming = input.Aim;
             FacingCamera = IsAiming || input.Fire;
             UpdateStance(input.Crouch);
-            IsSprinting = input.Sprint && !FacingCamera && !IsCrouching && moving;
+            float stickPace = input.MoveIsAnalog && !FacingCamera && !IsCrouching ? StickPace(move.magnitude) : -1f;
+            IsSprinting = stickPace >= 0f
+                ? stickPace > stickRunSpeed + 0.5f
+                : input.Sprint && !FacingCamera && !IsCrouching && moving;
 
             float speed;
             if (FacingCamera)
@@ -90,6 +102,7 @@ namespace ForestSoldier.Player
                 float back = moving ? Mathf.Clamp01(-move.y / move.magnitude) : 0f;
                 speed = aimMoveSpeed * Mathf.Lerp(1f, backwardMultiplier, back);
             }
+            else if (stickPace >= 0f) speed = moving ? stickPace / move.magnitude : 0f; // wishDir is already scaled by the stick
             else speed = IsSprinting ? sprintSpeed : WalkSpeed;
             if (IsCrouching) speed = CrouchMoveSpeed;
 
@@ -98,7 +111,7 @@ namespace ForestSoldier.Player
             planarVelocity = Vector3.MoveTowards(planarVelocity, target, rate * speed.AtLeast(1f) * dt);
 
             // Facing
-            if (FacingCamera) TurnTowards(viewYaw, aimTurnSpeed, dt);
+            if (FacingCamera || (cameraRig != null && cameraRig.UsesFirstPersonAim)) TurnTowards(viewYaw, aimTurnSpeed, dt);
             else if (moving) TurnTowards(Mathf.Atan2(wishDir.x, wishDir.z) * Mathf.Rad2Deg, turnSpeed, dt);
 
             // Gravity
@@ -135,6 +148,16 @@ namespace ForestSoldier.Player
             controller.height = height;
             controller.center = standingCenter + Vector3.down * ((standingHeight - height) * 0.5f);
             IsCrouching = crouch;
+        }
+
+        /// <summary>Speed in m/s for a stick deflection: walk up to stickWalkAt, the rifle run by stickRunAt, then sprint at full tilt.</summary>
+        public float StickPace(float m)
+        {
+            m = Mathf.Clamp01(m);
+            if (m <= stickWalkAt) return WalkSpeed * (m / stickWalkAt);
+            if (m <= stickRunAt) return Mathf.Lerp(WalkSpeed, stickRunSpeed, Mathf.InverseLerp(stickWalkAt, stickRunAt, m));
+            float top = fullTiltSprints ? sprintSpeed : stickRunSpeed;
+            return Mathf.Lerp(stickRunSpeed, top, Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(stickRunAt, 0.98f, m)));
         }
 
         private void TurnTowards(float yaw, float degPerSec, float dt)

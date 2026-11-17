@@ -5,8 +5,7 @@ namespace ForestSoldier.Player
 {
     /// <summary>
     /// After the Animator (and the reload overlay), turns the whole upper body
-    /// as one rigid piece about the chest so the barrel points at the crosshair,
-    /// then adds recoil on top.
+    /// about the chest, seats the rifle's sights at the right eye, then applies recoil.
     ///
     /// The rig parents the hands, arm poles and SMG to the root bone, not the
     /// arms, so "the upper body" is several roots: the chest (with arms and head
@@ -35,6 +34,12 @@ namespace ForestSoldier.Player
         private float recoilPitch, recoilYaw;
         private Transform head, rifle;
         private (Transform shoulder, Transform elbow, Transform wrist) leftArm, rightArm;
+        // The sight rail is above the bore. The head pivot is near the base of the goggles.
+        private const float SightHeight = 0.075f;
+        private static readonly Vector3 EyeOffset = new(0.035f, 0.08f, 0.07f);
+        public Vector3 EyePosition => head != null ? head.position + transform.rotation * EyeOffset
+            : transform.position + Vector3.up * 1.65f;
+        public Vector3 SightPosition => muzzle.position + muzzle.up * SightHeight;
 
         public float Weight => weight;
 
@@ -74,8 +79,6 @@ namespace ForestSoldier.Player
             recoilYaw *= decay;
 
             if (chest == null || muzzle == null || upperRoots == null) return;
-            if (weight <= 1e-4f && Mathf.Abs(recoilPitch) < 0.01f && Mathf.Abs(recoilYaw) < 0.01f) return;
-
             Vector3 pivot = chest.position;
 
             // Turning the torso moves the muzzle, which changes the direction to
@@ -95,62 +98,74 @@ namespace ForestSoldier.Player
             Quaternion blendFix = Quaternion.Slerp(Quaternion.identity, total, weight) * Quaternion.Inverse(total);
             Rotate(blendFix, pivot);
 
-            if (weight > 1e-4f && RaiseRifle())
+            AlignRifle(1f - overlayWeight);
+
+            if (recoilPitch < 0.01f && Mathf.Abs(recoilYaw) < 0.01f) return;
+            Quaternion recoil = Quaternion.AngleAxis(recoilYaw, Vector3.up) *
+                                Quaternion.AngleAxis(-recoilPitch, muzzle.right);
+            Rotate(recoil, head != null ? EyePosition : pivot);
+        }
+
+        private void AlignRifle(float poseWeight)
+        {
+            if (poseWeight <= 1e-4f || head == null || rifle == null || leftArm.wrist == null || rightArm.wrist == null ||
+                leftArm.shoulder == null || leftArm.elbow == null || rightArm.shoulder == null || rightArm.elbow == null)
+                return;
+
+            Vector3 start = muzzle.position;
+            Vector3 forward = muzzle.forward;
+            if (Vector3.ProjectOnPlane(forward, Vector3.up).sqrMagnitude < 0.01f) return;
+            Quaternion desiredRotation = Quaternion.LookRotation(forward, Vector3.up);
+            Vector3 desiredPosition = start;
+            if (weight > 1e-4f && weapon != null && (weapon.AimPoint - EyePosition).sqrMagnitude > 0.25f)
             {
-                for (int i = 0; i < 3; i++)
+                Vector3 eye = EyePosition;
+                float depth = Mathf.Clamp(Vector3.Dot(start - eye, forward), 0.25f, 1.2f);
+                Vector3 toTarget = weapon.AimPoint - eye;
+                // The crosshair is on the bore line. Offset its origin below
+                // the eye so the physical sights sit on the eye line.
+                Vector3 bore = toTarget + desiredRotation * Vector3.up * SightHeight;
+                if (Vector3.ProjectOnPlane(bore.normalized, Vector3.up).sqrMagnitude > 0.01f)
                 {
-                    Quaternion step = AimStep();
-                    if (Quaternion.Angle(step, Quaternion.identity) < 0.05f) break;
-                    Rotate(Quaternion.Slerp(Quaternion.identity, step, weight), pivot);
+                    desiredRotation = Quaternion.LookRotation(Vector3.Slerp(forward, bore.normalized, weight), Vector3.up);
+                    Vector3 sightAligned = eye + desiredRotation * new Vector3(0f, -SightHeight, depth);
+                    desiredPosition = Vector3.Lerp(start, sightAligned, weight);
                 }
             }
 
-            Vector3 right = transform.right;
-            Quaternion recoil = Quaternion.AngleAxis(-recoilPitch, right) * Quaternion.AngleAxis(recoilYaw, Vector3.up);
-            Rotate(recoil, pivot);
+            // The hands and rifle are siblings in this rig. Move them together
+            // and refit both elbows so the grip stays fixed on the weapon.
+            Quaternion turn = desiredRotation * Quaternion.Inverse(muzzle.rotation);
+            for (int attempt = 0; attempt < 6; attempt++, poseWeight *= 0.5f)
+            {
+                Quaternion rotation = Quaternion.Slerp(Quaternion.identity, turn, poseWeight);
+                Vector3 position = Vector3.Lerp(start, desiredPosition, poseWeight);
+                Vector3 left = position + rotation * (leftArm.wrist.position - start);
+                Vector3 right = position + rotation * (rightArm.wrist.position - start);
+                if (!CanReach(leftArm, left) || !CanReach(rightArm, right)) continue;
+
+                rifle.SetPositionAndRotation(position + rotation * (rifle.position - start), rotation * rifle.rotation);
+                PlaceArm(leftArm, left, rotation);
+                PlaceArm(rightArm, right, rotation);
+                return;
+            }
         }
 
-        private bool RaiseRifle()
+        private static bool CanReach((Transform shoulder, Transform elbow, Transform wrist) arm, Vector3 target)
         {
-            if (head == null || rifle == null || leftArm.wrist == null || rightArm.wrist == null ||
-                leftArm.shoulder == null || leftArm.elbow == null || rightArm.shoulder == null || rightArm.elbow == null)
-                return false;
-
-            // Compare the barrel line with the head at the same depth. This
-            // keeps the sights under the eyes when looking up or down.
-            Vector3 barrel = muzzle.forward;
-            Vector3 horizontal = Vector3.ProjectOnPlane(barrel, Vector3.up);
-            if (horizontal.sqrMagnitude < 0.05f) return false;
-            float headDepth = Vector3.Dot(head.position - muzzle.position, horizontal) / horizontal.sqrMagnitude;
-            float barrelAtHead = muzzle.position.y + barrel.y * headDepth;
-            float lift = Mathf.Clamp(head.position.y + 0.015f - barrelAtHead, 0f, 0.30f) * weight;
-            lift = Mathf.Min(lift, MaxLift(leftArm), MaxLift(rightArm));
-            if (lift < 0.001f) return false;
-
-            Vector3 offset = Vector3.up * lift;
-            rifle.position += offset;
-            PlaceArm(leftArm, offset);
-            PlaceArm(rightArm, offset);
-            return true;
+            float upperLength = Vector3.Distance(arm.shoulder.position, arm.elbow.position);
+            float lowerLength = Vector3.Distance(arm.elbow.position, arm.wrist.position);
+            float distance = Vector3.Distance(arm.shoulder.position, target);
+            return distance > Mathf.Abs(upperLength - lowerLength) + 0.001f && distance < upperLength + lowerLength;
         }
 
-        private static float MaxLift((Transform shoulder, Transform elbow, Transform wrist) arm)
-        {
-            Vector3 reach = arm.wrist.position - arm.shoulder.position;
-            float length = Vector3.Distance(arm.shoulder.position, arm.elbow.position)
-                + Vector3.Distance(arm.elbow.position, arm.wrist.position) - 0.002f;
-            float horizontalSquared = reach.x * reach.x + reach.z * reach.z;
-            return Mathf.Sqrt(Mathf.Max(0f, length * length - horizontalSquared)) - reach.y;
-        }
-
-        private static void PlaceArm((Transform shoulder, Transform elbow, Transform wrist) arm, Vector3 offset)
+        private static void PlaceArm((Transform shoulder, Transform elbow, Transform wrist) arm, Vector3 target, Quaternion gripTurn)
         {
             Vector3 shoulder = arm.shoulder.position;
             Vector3 elbow = arm.elbow.position;
             Vector3 wrist = arm.wrist.position;
             float upperLength = Vector3.Distance(shoulder, elbow);
             float lowerLength = Vector3.Distance(elbow, wrist);
-            Vector3 target = wrist + offset;
             float distance = Vector3.Distance(shoulder, target);
             Vector3 direction = (target - shoulder).normalized;
             Vector3 bend = Vector3.ProjectOnPlane(elbow - shoulder, direction).normalized;
@@ -162,7 +177,7 @@ namespace ForestSoldier.Player
             Vector3 forearm = upperTurn * (wrist - elbow);
             arm.shoulder.rotation = upperTurn * arm.shoulder.rotation;
             arm.elbow.rotation = Quaternion.FromToRotation(forearm, target - nextElbow) * arm.elbow.rotation;
-            arm.wrist.position = target;
+            arm.wrist.SetPositionAndRotation(target, gripTurn * arm.wrist.rotation);
         }
 
         /// <summary>Yaw about world up, then pitch in the vertical plane (no roll) to put the barrel on the aim point.</summary>

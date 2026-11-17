@@ -2,25 +2,29 @@
 
 Single-player third-person shooter prototype. Unity 6000.5.5f1, URP, Input System only.
 
-Status: **Milestones 1–3 done** (soldier, shooting range, forest). Polish and a desktop build are Milestone 4.
+Status: **Milestones 1–4 done** (soldier, shooting range, forest, polish and a macOS build), with Xbox controller support.
 
 ## Open it
 
 Unity Hub → Add → this folder. Open `Assets/_Game/Scenes/ForestRange.unity` and press Play. You spawn on the firing line facing the range.
 
-| Action | Input |
-|---|---|
-| Walk | W A S D (camera-relative) |
-| Look | Mouse |
-| Sprint | Left Shift (not while aiming) |
-| Aim | Hold right mouse (zooms; turns the soldier to the camera; strafes) |
-| Crouch | Hold Left Ctrl |
-| Fire | Left mouse (automatic; shoulders the rifle and aims at the crosshair) |
-| Reload | R, or automatically after the last round |
-| Reset targets | T |
-| Pause / free the cursor | Escape; click to re-capture (that click doesn't fire) |
+| Action | Keyboard & mouse | Xbox controller |
+|---|---|---|
+| Move | W A S D (camera-relative) | Left stick |
+| Look | Mouse | Right stick |
+| Sprint | Hold Left Shift | Click left stick (toggle; ends when you stop or aim) |
+| Crouch | Hold Left Ctrl | B (toggle) |
+| Aim | Hold right mouse | Left trigger |
+| Fire | Left mouse | Right trigger |
+| Toggle front view | V | Left Bumper |
+| Toggle first person | C | Click right stick |
+| Reload | R | X |
+| Reset targets | T | View |
+| Pause | Escape (click to resume) | Menu (press again to resume) |
+| Jump | Space (no clip, does nothing) | A (same) |
 
-Jump is bound but does nothing: the soldier has no jump clip.
+Front view lets you watch the soldier fire while keeping the weapon aimed in the gameplay direction. In first person, hold Aim to look down the rifle's iron sights.
+
 
 ## The soldier asset
 
@@ -40,7 +44,7 @@ Source: [Soldier_Animated.blend](Tools/Blender/Soldier_Animated.blend) (a Sketch
 | Crouch aim and fire | Idle Crouching Aiming | Upper body blends over Crouch Walking while moving |
 | Walk forward (0.99 m/s) | Walking | full forward walk cycle |
 | Move forward while aiming (1.8 m/s) | Loop Run Forward | full rifle run cycle from *Shoot Rifle* |
-| Sprint (5.5 m/s) | Sprint Forward | in-place cycle; SMG carried low in one hand |
+| Sprint (5.5 m/s) | Sprint Forward | in-place cycle with a two-handed low-ready pose |
 | Aim strafe right | Loop Strafe Right | loop cut from *Strafing* (frames 33–53) |
 | Aim strafe left | Loop Strafe Left | **baked**: mirrored legs, right-handed upper body kept |
 | Aim walk back | Walking Backwards | backward walk with the rifle aim pose blended over it |
@@ -88,7 +92,7 @@ Tools/Blender/              export_soldier.py
 ## How shooting works
 
 - **Aim from the camera, fire from the gun.** The crosshair ray (starting level with the soldier, so nothing between camera and player counts) picks the aim point. The round then travels from the muzzle to that point, so low cover in front of the gun takes the hit even when the camera sees over it. If the barrel is through a wall (shoulder → muzzle blocked), the wall takes it. All of this lives in `HitscanResolver`, which is plain physics queries.
-- **The barrel follows the crosshair.** `SoldierAimRig` turns the upper body as one rigid piece about the chest (yaw, then pitch, no roll; a few passes so near aim points converge), then adds recoil. It has to move several bones together because the rig hangs the hands and SMG off the root.
+- **The rifle sights sit at the right eye.** `SoldierAimRig` turns the torso toward the crosshair, levels the rifle using the axes measured from its mesh, and moves both hands with the rifle. Recoil pivots around the eye after the grip is set.
 - **Reload over movement.** `UpperBodyOverlay` plays *Reload(1)* on a hidden copy of the skeleton and copies its upper body onto the real one, re-seated on the real chest. This is the runtime version of what the Blender export does for the aim clips. An Avatar Mask layer can't do it on this rig.
 - **Targets.** `DamageableTarget` (100 HP) on a hinge; `Hitbox` children scale damage (torso 1×, head 2× and critical). Hits flash and rock the dummy; at 0 HP it falls and its colliders turn off. T resets all of them.
 - **Weapon defaults** (on `HitscanWeapon`): 600 rpm, 25 damage, 30 rounds, 2.2 s reload (ammo in at 80%), 200 m range, spread 0.2° aimed / 1.4° hip, plus movement and per-shot bloom.
@@ -114,6 +118,46 @@ Milestone 3 tests:
 - **Blocking:** trees stop the player and bullets; the boundary holds.
 - **Range:** every target's head is visible from the firing line.
 - **Audio:** the ambience loops.
+
+## Controller (Milestone 4)
+
+- **Bindings:** the gamepad bindings are in `SoldierControls.inputactions` (Gamepad control scheme) next to keyboard and mouse. Both work at once, and the HUD prompts follow whichever you used last (`R` / `(X)`, `T` / `View`).
+- **Stick look** (`ThirdPersonCamera`, "Look (gamepad right stick)"): 200°/s yaw and 140°/s pitch at full tilt, with a response curve (exponent 1.8) for fine aim. After a quarter-second at full tilt, turning speeds up by 60%. Stick look slows to 55% while the crosshair is over a live target, which is the only aim assistance. Aiming scales it like the mouse.
+- **Rumble** (`GamepadRumble`): a light pulse per shot and a heavier one per kill, only while you're on the controller. The motors stop on pause or when the window loses focus.
+- **Tests:** these use a virtual gamepad through the real Input System. I haven't tried a physical Xbox pad. If yours doesn't respond on macOS, check that it's paired (Bluetooth) and that the game window has focus.
+
+## Polish, build and profiling (Milestone 4)
+
+- **Canopies fade for the camera:** canopies and bushes carry trigger volumes on a `Foliage` layer that nothing collides with. `FoliageFader` on the camera sweeps a capsule from the camera to the player's chest and swaps the foliage in it to a transparent twin until it's clear.
+- **No per-frame garbage:** the HUD no longer builds strings every frame, and target counting no longer boxes an enumerator. In the built player, steady play allocates nothing; the only allocations are damage-number strings on hits.
+- **Build:** **Forest Soldier → Build macOS**, or from the command line:
+  ```bash
+  /Applications/Unity/Hub/Editor/6000.5.5f1/Unity.app/Contents/MacOS/Unity -batchmode -quit -projectPath . -executeMethod ForestSoldier.EditorTools.ForestSoldierBuild.BuildMac
+  ```
+  It writes `Builds/macOS/ForestSoldier.app` (git-ignored, about 134 MB) as a 1600×900 resizable window.
+- **Benchmark:** launch the built app with `-benchmark` and it plays a fixed route (firing line, shooting, the yard, the trail, a spin in dense forest), writes a JSON report and quits:
+  ```bash
+  "Builds/macOS/ForestSoldier.app/Contents/MacOS/Forest Soldier" -benchmark -benchmarkOut /tmp/bench.json -screen-width 1920 -screen-height 1080 -screen-fullscreen 0
+  ```
+  Results on an M2 Max at 1920×1080, vsync off (`Tools/last_benchmark_m2max.json`):
+
+  | Phase | Frame avg | p99 | CPU avg | GPU avg |
+  |---|---|---|---|---|
+  | Firing line | 1.6 ms | 6.1 ms | 1.6 ms | 2.9 ms |
+  | Shooting | 1.6 ms | 2.5 ms | 1.6 ms | 3.0 ms |
+  | Yard sprint | 1.5 ms | 2.4 ms | 1.5 ms | 2.5 ms |
+  | Trail walk | 1.6 ms | 2.5 ms | 1.6 ms | 3.0 ms |
+  | Forest spin | 1.9 ms | 2.6 ms | 1.9 ms | 3.8 ms |
+
+  The GPU time is above the frame time because the CPU and GPU work on different frames in parallel.
+
+Milestone 4 tests:
+- **Accuracy:** aimed shots land within the spread cone at 10 m and 60 m and hit the target aimed at; point blank hits the bench.
+- **Canopy fading:** canopies fade around the camera and come back.
+- **Garbage guard:** moving, aiming and firing add under 128 B a frame over the editor's idle baseline.
+- **Controller (7 tests):** stick movement and look, the response curve, the triggers, the sprint and crouch toggles, Menu pause, View reset, X reload, and prompts following the last device.
+
+The whole suite is 38 tests: 35 run, and the 3 screenshot tests need `FOREST_SOLDIER_SHOTS=1`.
 
 ## Inspector wiring
 
@@ -176,12 +220,20 @@ Milestone 2 tests (18 in all with M1):
 - [ ] The fog hides the world's edge; the rim hills and walls keep you in
 - [ ] Ambience plays under the gunfire
 
+## Milestone 4 checklist (by hand)
+
+- [ ] Plug in or pair the Xbox controller; walk, look, aim and fire with it; feel the rumble
+- [ ] Click the left stick to sprint, B to crouch, Menu to pause and resume
+- [ ] Switch between mouse and controller: the prompts follow
+- [ ] Walk through dense pines: canopies near the camera turn see-through
+- [ ] Open `Builds/macOS/ForestSoldier.app` and play a round outside the editor
+
 ## Known gaps / next
 
 - **Sounds and effects are placeholders** generated by the setup script (synthesised WAVs, a procedural flash texture). Drop real assets onto `WeaponEffects` to replace them.
 - **Looking far down while aiming** bends the whole upper body forward about the chest; it reads more like a bow than a lean. A two-bone spread (some pitch on the hips) would look better.
-- **Sprint holds the SMG one-handed and low** (that's the clip); firing cancels sprint.
+- **Grass footsteps** use separate walk and run recordings and follow the foot contacts in the locomotion clips.
 - *Firing Rifle* is unused: procedural recoil reads better at 600 rpm. `UpperBodyOverlay` could play it if wanted.
-- **The camera can pass into tree canopies** in dense forest: only trunks have colliders. For Milestone 4: fade or dither foliage near the camera, or give canopies a camera-only collider layer.
-- Frame time in the forest hasn't been profiled yet (Milestone 4); the batch test runs are headless, so their FPS means nothing.
-- Next: Milestone 4, polish, profiling and a desktop build.
+- **First-sight hitches:** the benchmark shows single ~200 ms frames when it teleports into an area it hasn't drawn yet, most likely Metal compiling pipeline states the first time something is drawn. Normal play walks in gradually, but expect a one-off stutter. Warming them up at load (Unity 6's GraphicsStateCollection, or a ShaderVariantCollection) would fix it.
+- **The editor's garbage numbers include its own per-frame overhead** (about 300 B idle). Trust the built player's benchmark report.
+- Not done in the plan's scope: multiplayer, AI, jump (no clip).

@@ -17,6 +17,8 @@ namespace ForestSoldier.UI
         [SerializeField] private HitscanWeapon weapon;
         [SerializeField] private ThirdPersonCamera cameraRig;
         [SerializeField] private TargetResetController targets;
+        [Tooltip("For keyboard vs. controller prompts.")]
+        [SerializeField] private SoldierInput input;
 
         [Header("Style")]
         [SerializeField] private Color crosshairColor = new Color(1f, 1f, 1f, 0.9f);
@@ -34,6 +36,7 @@ namespace ForestSoldier.UI
         private RectTransform canvasRect;
         private Font font;
         private readonly RectTransform[] crossBars = new RectTransform[4];
+        private RectTransform crosshairDot;
         private readonly Image[] hitBars = new Image[4];
         private RectTransform hitMarker;
         private float hitTimer;
@@ -41,8 +44,17 @@ namespace ForestSoldier.UI
         private Text ammoText, ammoHint, targetText, fpsText;
         private Image reloadBar, reloadBarBack;
         private float fpsSmoothed;
-        private int shownAmmo = -1, shownDown = -1, shownTotal = -1, shownFps = -1;
+        private int shownAmmo = -1, shownDown = -1, shownTotal = -1, shownFps = -1, shownWalkersDown = -1;
         private string shownHint;
+        private bool shownPad;
+        private static readonly string[] FpsStrings = BuildFpsStrings();
+
+        private static string[] BuildFpsStrings()
+        {
+            var a = new string[1000];
+            for (int i = 0; i < a.Length; i++) a[i] = i + " fps";
+            return a;
+        }
 
         private class Floating
         {
@@ -56,8 +68,11 @@ namespace ForestSoldier.UI
 
         public int HitMarkersShown { get; private set; }
 
+        private bool Pad => input != null && input.UsingGamepad;
+
         private void Awake()
         {
+            if (input == null) input = FindFirstObjectByType<SoldierInput>();
             font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             Build();
         }
@@ -99,7 +114,8 @@ namespace ForestSoldier.UI
                     ? new Vector2(crosshairBarWidth, crosshairBarLength)
                     : new Vector2(crosshairBarLength, crosshairBarWidth);
             }
-            NewImage("CrosshairDot", canvasRect, crosshairColor).rectTransform.sizeDelta = new Vector2(2f, 2f);
+            crosshairDot = NewImage("CrosshairDot", canvasRect, crosshairColor).rectTransform;
+            crosshairDot.sizeDelta = new Vector2(2f, 2f);
 
             hitMarker = new GameObject("HitMarker", typeof(RectTransform)).GetComponent<RectTransform>();
             hitMarker.SetParent(canvasRect, false);
@@ -199,6 +215,12 @@ namespace ForestSoldier.UI
         {
             float dt = Time.unscaledDeltaTime;
             var cam = cameraRig != null ? cameraRig.Camera : Camera.main;
+            bool showReticle = cameraRig == null || (!cameraRig.IsFrontView && !cameraRig.ShowsIronSights);
+            if (crosshairDot.gameObject.activeSelf != showReticle)
+            {
+                crosshairDot.gameObject.SetActive(showReticle);
+                foreach (var bar in crossBars) bar.gameObject.SetActive(showReticle);
+            }
 
             // Crosshair gap = spread cone projected to pixels at the reference height.
             float gap = crosshairMinGap;
@@ -232,19 +254,23 @@ namespace ForestSoldier.UI
                     ammoText.color = weapon.Ammo == 0 ? killColor : Color.white;
                 }
                 string hint = weapon.IsReloading ? "RELOADING"
-                    : weapon.Ammo == 0 ? "R  RELOAD"
-                    : weapon.Ammo <= weapon.MagazineSize / 4 ? "R  reload" : "";
+                    : weapon.Ammo == 0 ? (Pad ? "(X)  RELOAD" : "R  RELOAD")
+                    : weapon.Ammo <= weapon.MagazineSize / 4 ? (Pad ? "(X)  reload" : "R  reload") : "";
                 if (!ReferenceEquals(hint, shownHint)) ammoHint.text = shownHint = hint;
                 reloadBarBack.gameObject.SetActive(weapon.IsReloading);
                 if (weapon.IsReloading)
                     reloadBar.rectTransform.sizeDelta = new Vector2(120f * weapon.ReloadProgress, 0f);
             }
 
-            if (targets != null && (targets.Down != shownDown || targets.Total != shownTotal))
+            if (targets != null && (targets.Down != shownDown || targets.Total != shownTotal || Pad != shownPad
+                                    || targets.WalkersDown != shownWalkersDown))
             {
+                shownPad = Pad;
+                shownWalkersDown = targets.WalkersDown;
                 shownDown = targets.Down;
                 shownTotal = targets.Total;
-                targetText.text = $"Targets down  {shownDown} / {shownTotal}\n<size=20>T  reset targets</size>";
+                string walkers = targets.WalkersTotal > 0 ? $"\nWalkers down  {shownWalkersDown} / {targets.WalkersTotal}" : "";
+                targetText.text = $"Targets down  {shownDown} / {shownTotal}{walkers}\n<size=20>" + (Pad ? "View  reset all" : "T  reset all") + "</size>";
             }
 
             if (cam != null)
@@ -278,7 +304,7 @@ namespace ForestSoldier.UI
             {
                 fpsSmoothed = fpsSmoothed <= 0f ? 1f / dt : Mathf.Lerp(fpsSmoothed, 1f / dt, 0.05f);
                 int fps = Mathf.RoundToInt(fpsSmoothed);
-                if (fps != shownFps) fpsText.text = $"{shownFps = fps} fps";
+                if (fps != shownFps) fpsText.text = FpsStrings[shownFps = Mathf.Clamp(fps, 0, FpsStrings.Length - 1)];
             }
         }
     }

@@ -2,6 +2,7 @@ using System.Collections;
 using System.IO;
 using System.Linq;
 using ForestSoldier.Combat;
+using ForestSoldier.NPC;
 using ForestSoldier.Player;
 using ForestSoldier.UI;
 using NUnit.Framework;
@@ -43,6 +44,8 @@ namespace ForestSoldier.Tests
             hud = Object.FindFirstObjectByType<PrototypeHUD>();
             targets = Object.FindFirstObjectByType<TargetResetController>();
             input.ExternalControl = true;
+            // Walkers have their own tests; keep them out of these bullet paths.
+            foreach (var w in WalkerNPC.All.ToArray()) w.gameObject.SetActive(false);
             yield return Frames(10);
         }
 
@@ -265,6 +268,8 @@ namespace ForestSoldier.Tests
                 Assert.Less(err, 3f, $"barrel off the crosshair by {err:F1} deg at camera pitch {pitch}: " +
                     $"barrel {weapon.Muzzle.forward} at {weapon.Muzzle.position}, aim point {weapon.AimPoint}, " +
                     $"rig weight {player.GetComponent<SoldierAimRig>().Weight:F2}, body yaw {player.eulerAngles.y:F1}");
+                var upright = Vector3.ProjectOnPlane(Vector3.up, weapon.Muzzle.forward);
+                Assert.Less(Vector3.Angle(weapon.Muzzle.up, upright), 3f, $"rifle cant at camera pitch {pitch}");
             }
         }
 
@@ -284,20 +289,23 @@ namespace ForestSoldier.Tests
                 Assert.AreEqual(crouch, motor.IsCrouching);
                 if (crouch) Assert.Less(head.position.y, standingHeadHeight - 0.35f);
 
-                float barrelAtHead = float.NaN;
+                float sightError = float.NaN;
+                float cant = float.NaN;
                 void CheckShot(ShotResult shot)
                 {
                     var muzzle = weapon.Muzzle;
-                    var horizontal = Vector3.ProjectOnPlane(muzzle.forward, Vector3.up);
-                    float depth = Vector3.Dot(head.position - muzzle.position, horizontal) / horizontal.sqrMagnitude;
-                    barrelAtHead = muzzle.position.y + muzzle.forward.y * depth - head.position.y;
+                    Vector3 eye = head.position + player.rotation * new Vector3(0.035f, 0.08f, 0.07f);
+                    Vector3 sight = muzzle.position + muzzle.up * 0.075f;
+                    sightError = Vector3.ProjectOnPlane(eye - sight, muzzle.forward).magnitude;
+                    cant = Vector3.Angle(muzzle.up, Vector3.ProjectOnPlane(Vector3.up, muzzle.forward));
                 }
                 weapon.Fired += CheckShot;
                 input.Fire = true;
-                for (int i = 0; i < 12 && float.IsNaN(barrelAtHead); i++) yield return null;
+                for (int i = 0; i < 12 && float.IsNaN(sightError); i++) yield return null;
                 input.Fire = false;
                 weapon.Fired -= CheckShot;
-                Assert.That(barrelAtHead, Is.InRange(-0.07f, 0.10f), $"barrel height relative to head in crouch={crouch}");
+                Assert.Less(sightError, 0.055f, $"sight distance from the right eye in crouch={crouch}");
+                Assert.Less(cant, 3f, $"rifle cant in crouch={crouch}");
             }
         }
 

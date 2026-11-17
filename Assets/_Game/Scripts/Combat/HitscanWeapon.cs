@@ -98,6 +98,7 @@ namespace ForestSoldier.Combat
 
             AimPoint = HitscanResolver.AimPoint(cameraRig.AimRay, ShooterPoint, range, hitMask, out _, out _);
             if (aimRig != null && aimRig.isActiveAndEnabled) aimRig.ApplyAim();
+            cameraRig.PresentFirstPersonSight(muzzle, IsReloading);
 
             shotBloom = Mathf.MoveTowards(shotBloom, 0f, spreadRecovery * dt);
             bool moving = motor != null && motor.AnimationVelocity.sqrMagnitude > 0.25f;
@@ -189,7 +190,7 @@ namespace ForestSoldier.Combat
             float yawKick = UnityEngine.Random.Range(-1f, 1f);
             if (aimRig != null) aimRig.AddRecoil(gunKickPitch, gunKickYaw * yawKick);
             cameraRig.AddRecoil(cameraKickPitch, cameraKickYaw * yawKick);
-            if (effects != null) effects.PlayShot(muzzle, shot, result.Landed);
+            if (effects != null) effects.PlayShot(muzzle, shot, result);
 
             Fired?.Invoke(shot);
             if (result.Landed) HitDamageable?.Invoke(shot, target, result);

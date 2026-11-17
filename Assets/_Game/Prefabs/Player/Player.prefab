@@ -332,8 +332,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5025124080956153292}
   serializedVersion: 2
-  m_LocalRotation: {x: -0.7182173, y: -0.024866942, z: -0.047665842, w: 0.69373876}
-  m_LocalPosition: {x: -0.0050861505, y: 0.58810747, z: 0.005107103}
+  m_LocalRotation: {x: -0.6532371, y: -0.2706214, z: -0.2705933, w: 0.6533182}
+  m_LocalPosition: {x: -0.0068643, y: 0.5847188, z: 0.00793}
   m_LocalScale: {x: 0.9959863, y: 0.99598616, z: 0.9959865}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -359,6 +359,7 @@ GameObject:
   - component: {fileID: 3338642297143565071}
   - component: {fileID: 3907278179470986604}
   - component: {fileID: 8158710786139513712}
+  - component: {fileID: 4165705456301110472}
   m_Layer: 8
   m_Name: Player
   m_TagString: Untagged
@@ -438,6 +439,10 @@ MonoBehaviour:
   cameraRig: {fileID: 0}
   sprintSpeed: 5.5
   aimMoveSpeed: 1.8
+  stickWalkAt: 0.5
+  stickRunAt: 0.78
+  stickRunSpeed: 1.8
+  fullTiltSprints: 1
   crouchHeight: 1.35
   backwardMultiplier: 0.7
   acceleration: 14
@@ -636,6 +641,19 @@ MonoBehaviour:
   impactPrefab: {fileID: 8108154956102652565, guid: 3de5ddaaf0aa94a4d97194bdfc211a8c, type: 3}
   impactPool: 8
   particlesPerImpact: 10
+  bloodPrefab: {fileID: 4222573000738510287, guid: c5e485359afc347539d31bd4f2fe1f06, type: 3}
+  bloodPool: 6
+  dropletsPerHit: 16
+  splatMaterial: {fileID: 2100000, guid: 20c43d170ec0845d2b07db58dffd7de7, type: 2}
+  splatPool: 40
+  splatSize: {x: 0.3, y: 0.6}
+  killPoolSize: 1.5
+  splatReach: 2.5
+  splatLife: 30
+  splatFade: 6
+  splatMask:
+    serializedVersion: 2
+    m_Bits: 4294965499
   source: {fileID: 8677921741427619656}
   shot: {fileID: 8300000, guid: d1f56770918214ff59e998aca0842677, type: 3}
   shotVariants:
@@ -648,6 +666,8 @@ MonoBehaviour:
   reloadSound: {fileID: 8300000, guid: 78b2b605752c40028f22f18ac727344a, type: 3}
   reloadClack: {fileID: 8300000, guid: 35590713e3b414defa2fc31e2c526449, type: 3}
   hitConfirm: {fileID: 8300000, guid: 8446c04914a9a4bae9d0c90ce786e594, type: 3}
+  fleshHit: {fileID: 8300000, guid: 751c760deb727463b88760f692fdc118, type: 3}
+  fleshKill: {fileID: 8300000, guid: ebc4890de8e3a4d8c88ea721409ebbfd, type: 3}
   pitchJitter: 0.05
   shotVolume: 0.7
   hitVolume: 0.5
@@ -691,6 +711,25 @@ MonoBehaviour:
   gunKickYaw: 0.6
   cameraKickPitch: 0.3
   cameraKickYaw: 0.08
+--- !u!114 &4165705456301110472
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5253751211112323393}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4272ab195d0584de4ad003ef11ea569e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ForestSoldier::ForestSoldier.Player.GamepadRumble
+  input: {fileID: 0}
+  weapon: {fileID: 0}
+  shot: {x: 0.12, y: 0.32}
+  shotTime: 0.06
+  kill: {x: 0.45, y: 0.2}
+  killTime: 0.18
+  strength: 1
 --- !u!1 &6515037443582945952
 GameObject:
   m_ObjectHideFlags: 0
@@ -1077,7 +1116,13 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: -5387609776091938355, guid: 24749eb52132b45c3a262698cf1dac49, type: 3}
       insertIndex: -1
       addedObject: {fileID: 586289335122062492}
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 24749eb52132b45c3a262698cf1dac49, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 5946084916704357294}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 24749eb52132b45c3a262698cf1dac49, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1547043459312478757}
   m_SourcePrefab: {fileID: 100100000, guid: 24749eb52132b45c3a262698cf1dac49, type: 3}
 --- !u!4 &736300220430933179 stripped
 Transform:
@@ -1099,6 +1144,132 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 4196772957573204, guid: 24749eb52132b45c3a262698cf1dac49, type: 3}
   m_PrefabInstance: {fileID: 2770976432538146525}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &3077389781914053516 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: 24749eb52132b45c3a262698cf1dac49, type: 3}
+  m_PrefabInstance: {fileID: 2770976432538146525}
+  m_PrefabAsset: {fileID: 0}
+--- !u!82 &5946084916704357294
+AudioSource:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3077389781914053516}
+  m_Enabled: 1
+  serializedVersion: 4
+  OutputAudioMixerGroup: {fileID: 0}
+  m_audioClip: {fileID: 0}
+  m_Resource: {fileID: 0}
+  m_PlayOnAwake: 0
+  m_Volume: 1
+  m_Pitch: 1
+  Loop: 0
+  Mute: 0
+  Spatialize: 0
+  SpatializePostEffects: 0
+  Priority: 128
+  DopplerLevel: 1
+  MinDistance: 2
+  MaxDistance: 18
+  Pan2D: 0
+  rolloffMode: 0
+  BypassEffects: 0
+  BypassListenerEffects: 0
+  BypassReverbZones: 0
+  rolloffCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    - serializedVersion: 3
+      time: 1
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  panLevelCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0.7
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  spreadCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  reverbZoneMixCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+--- !u!114 &1547043459312478757
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3077389781914053516}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b8d2c3ff42564afebf098cfbf50a8e13, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ForestSoldier::ForestSoldier.Player.SoldierFootsteps
+  walk:
+  - {fileID: 8300000, guid: e6e7429dc54a4005806a83cf4160ba04, type: 3}
+  - {fileID: 8300000, guid: c8b07ad51f974edb9794efaa4b3c6cd4, type: 3}
+  - {fileID: 8300000, guid: 5738115edd3a4eb0960a0208e7e94dde, type: 3}
+  - {fileID: 8300000, guid: e04703ae570f4c3abb6796f6039325b9, type: 3}
+  run:
+  - {fileID: 8300000, guid: 50435783c8ea45da9be19611062108df, type: 3}
+  - {fileID: 8300000, guid: 374183b91aed45319acc9d1a80663025, type: 3}
+  - {fileID: 8300000, guid: c235c4df035a46eead053a801ff799af, type: 3}
+  - {fileID: 8300000, guid: 6d3db44e07e64fdfa4176de24c8ac254, type: 3}
+  - {fileID: 8300000, guid: 7c5a86c503d245199071af57b814a33d, type: 3}
+  - {fileID: 8300000, guid: ba92d655a7db4703ac161386ab12ffa8, type: 3}
 --- !u!4 &5999127543778822853 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 8445747751913298968, guid: 24749eb52132b45c3a262698cf1dac49, type: 3}

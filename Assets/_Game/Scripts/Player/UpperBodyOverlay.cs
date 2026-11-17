@@ -4,7 +4,7 @@ using UnityEngine;
 namespace ForestSoldier.Player
 {
     /// <summary>
-    /// Plays aim and reload poses over the current locomotion.
+    /// Plays weapon carry, aim and reload poses over the current locomotion.
     ///
     /// An Avatar Mask layer can't do this on this rig: the hands and SMG are
     /// parented to the root, so they follow the base clip's root while the arms
@@ -31,11 +31,12 @@ namespace ForestSoldier.Player
         private SoldierMotor motor;
         private Transform proxyRoot;
         private Transform realChest, proxyChest;
+        private Transform realHead;
         private readonly List<(Transform real, Transform proxy)> rootLevel = new List<(Transform, Transform)>();
         private readonly List<(Transform real, Transform proxy)> locals = new List<(Transform, Transform)>();
         private float elapsed, duration;
         private bool playing;
-        private float aimWeight, aimTime;
+        private float aimWeight, aimTime, carryPitch;
 
         public float Weight { get; private set; }
         public bool IsPlaying => playing;
@@ -62,6 +63,7 @@ namespace ForestSoldier.Player
             var prox = Index(proxyRoot);
             realChest = real["Spineupper"];
             proxyChest = prox["Spineupper"];
+            real.TryGetValue("head", out realHead);
             foreach (var n in RootLevelUpper)
                 if (real.TryGetValue(n, out var a) && prox.TryGetValue(n, out var b)) rootLevel.Add((a, b));
             // Everything under the chest and the hands keeps the overlay clip's local pose.
@@ -105,9 +107,11 @@ namespace ForestSoldier.Player
         {
             float dt = Time.deltaTime;
             bool crouching = motor != null && motor.IsCrouching;
-            bool aiming = motor != null && (motor.FacingCamera || crouching);
-            aimWeight = input != null && input.Fire ? 1f
-                : Mathf.MoveTowards(aimWeight, aiming ? 1f : 0f, dt / blendIn);
+            bool sprinting = motor != null && motor.IsSprinting;
+            bool posing = motor != null && (motor.FacingCamera || crouching || sprinting);
+            bool firing = input != null && input.Fire;
+            aimWeight = firing ? 1f : Mathf.MoveTowards(aimWeight, posing ? 1f : 0f, dt / blendIn);
+            carryPitch = firing ? 0f : Mathf.MoveTowards(carryPitch, sprinting ? 22f : 0f, 180f * dt);
             var aimClip = crouching ? crouchingAimClip : standingAimClip;
 
             proxyRoot.SetLocalPositionAndRotation(model.localPosition, model.localRotation);
@@ -116,6 +120,8 @@ namespace ForestSoldier.Player
                 aimTime += dt;
                 aimClip.SampleAnimation(proxyRoot.gameObject, Mathf.Repeat(aimTime, aimClip.length));
                 ApplyPose(aimWeight);
+                if (carryPitch > 0.01f)
+                    LowerRifle(carryPitch * aimWeight);
             }
             else aimTime = 0f;
 
@@ -130,6 +136,17 @@ namespace ForestSoldier.Player
             Weight = Mathf.Clamp01(Mathf.Min(elapsed / blendIn, (duration - elapsed) / blendOut));
             reloadClip.SampleAnimation(proxyRoot.gameObject, reloadClip.length * (elapsed / duration));
             ApplyPose(Weight);
+        }
+
+        private void LowerRifle(float degrees)
+        {
+            Quaternion tilt = Quaternion.AngleAxis(degrees, transform.right);
+            Vector3 pivot = realChest.position;
+            Quaternion headRotation = realHead != null ? realHead.rotation : Quaternion.identity;
+            realChest.rotation = tilt * realChest.rotation;
+            foreach (var (bone, _) in rootLevel)
+                bone.SetPositionAndRotation(pivot + tilt * (bone.position - pivot), tilt * bone.rotation);
+            if (realHead != null) realHead.rotation = headRotation;
         }
 
         private void ApplyPose(float w)

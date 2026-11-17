@@ -73,6 +73,7 @@ namespace ForestSoldier.EditorTools
             AssetDatabase.DeleteAsset(MaskPath); // earlier builds made an aim layer mask; aim is baked into the clips now
             var controller = CreateController(clips);
             BuildCombatAssets(clips);
+            BuildWalkerAssets(clips, model);
             var prefab = CreatePlayerPrefab(model, controller);
             CreateScene(prefab);
             AssetDatabase.SaveAssets();
@@ -157,6 +158,7 @@ namespace ForestSoldier.EditorTools
                 c.name = clean;
                 c.loopTime = LoopClips.Contains(clean);
                 c.loopPose = false;
+                ConfigureFootstepEvents(c);
             }
             mi.clipAnimations = clips;
             mi.SaveAndReimport();
@@ -345,7 +347,8 @@ namespace ForestSoldier.EditorTools
                 so.FindProperty("motor").objectReferenceValue = motor;
                 so.ApplyModifiedPropertiesWithoutUndo();
 
-                AddCombat(root, modelInstance, model, idle);
+                AddCombat(root, modelInstance, model);
+                AddFootsteps(modelInstance);
 
                 foreach (var t in root.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = PlayerLayerIndex;
 
@@ -443,7 +446,8 @@ namespace ForestSoldier.EditorTools
             var so = new SerializedObject(rig);
             so.FindProperty("target").objectReferenceValue = player.transform;
             so.FindProperty("input").objectReferenceValue = player.GetComponent<SoldierInput>();
-            so.FindProperty("collisionMask").intValue = ~(1 << PlayerLayerIndex) & ~(1 << 2);
+            // The camera ignores walkers (layer 10) so it doesn't lurch as they pass.
+            so.FindProperty("collisionMask").intValue = ~(1 << PlayerLayerIndex) & ~(1 << 2) & ~(1 << 10);
             so.ApplyModifiedPropertiesWithoutUndo();
             camGo.transform.SetPositionAndRotation(new Vector3(0.55f, 1.65f, -3.4f), Quaternion.identity);
 
@@ -456,6 +460,7 @@ namespace ForestSoldier.EditorTools
             weaponSo.ApplyModifiedPropertiesWithoutUndo();
             AddHud(player, rig);
             BuildForest(light, cam);
+            PlaceWalkers();
 
             EditorSceneManager.SaveScene(scene, ScenePath);
 

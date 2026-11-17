@@ -2,6 +2,7 @@ using System.Collections;
 using System.IO;
 using System.Linq;
 using ForestSoldier.Combat;
+using ForestSoldier.NPC;
 using ForestSoldier.Environment;
 using ForestSoldier.Player;
 using NUnit.Framework;
@@ -35,6 +36,8 @@ namespace ForestSoldier.Tests
             rig = Object.FindFirstObjectByType<ThirdPersonCamera>();
             terrain = Terrain.activeTerrain;
             input.ExternalControl = true;
+            // Walkers have their own tests; keep them out of these bullet paths.
+            foreach (var w in WalkerNPC.All.ToArray()) w.gameObject.SetActive(false);
             yield return Frames(10);
         }
 

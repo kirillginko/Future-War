@@ -23,6 +23,8 @@ namespace ForestSoldier.EditorTools
         private const int HeightRes = 513;
         private const int AlphaRes = 512;
         private const int Seed = 20261116;
+        private const int FoliageLayerIndex = 9;
+        private const string FoliageLayerName = "Foliage";
 
         private static Vector2[] trailSamples;
         private static float[] trailProfile;
@@ -34,6 +36,7 @@ namespace ForestSoldier.EditorTools
         {
             Directory.CreateDirectory(EnvArt);
             Directory.CreateDirectory(EnvPrefabs);
+            EnsureFoliageLayer();
             var root = new GameObject("Forest").transform;
 
             var terrain = BuildTerrain(root);
@@ -43,6 +46,53 @@ namespace ForestSoldier.EditorTools
             BuildBoundary(root);
             BuildAtmosphere(sun, cam);
             BuildAmbience(root);
+            AddFoliageFader(cam, kit);
+        }
+
+        // ================================================================ foliage fade
+
+        private static void EnsureFoliageLayer()
+        {
+            var tagManager = new SerializedObject(AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/TagManager.asset")[0]);
+            var slot = tagManager.FindProperty("layers").GetArrayElementAtIndex(FoliageLayerIndex);
+            if (slot.stringValue != FoliageLayerName)
+            {
+                if (!string.IsNullOrEmpty(slot.stringValue))
+                    throw new System.InvalidOperationException($"Layer {FoliageLayerIndex} is already '{slot.stringValue}'.");
+                slot.stringValue = FoliageLayerName;
+                tagManager.ApplyModifiedPropertiesWithoutUndo();
+            }
+            // Canopy volumes are camera-only triggers: nothing should collide with them.
+            for (int i = 0; i < 32; i++) Physics.IgnoreLayerCollision(FoliageLayerIndex, i, true);
+        }
+
+        private static void CanopyVolume(GameObject tree, Vector3 centre, float radius, float height)
+        {
+            var go = new GameObject("CanopyVolume") { layer = FoliageLayerIndex };
+            go.transform.SetParent(tree.transform, false);
+            var c = go.AddComponent<CapsuleCollider>();
+            c.isTrigger = true;
+            c.center = centre;
+            c.radius = radius;
+            c.height = height;
+        }
+
+        private static void AddFoliageFader(Camera cam, ForestKit kit)
+        {
+            var fader = cam.gameObject.AddComponent<FoliageFader>();
+            var so = new SerializedObject(fader);
+            var player = Object.FindFirstObjectByType<ForestSoldier.Player.SoldierInput>();
+            so.FindProperty("target").objectReferenceValue = player != null ? player.transform : null;
+            so.FindProperty("foliageMask").intValue = 1 << FoliageLayerIndex;
+            var solid = so.FindProperty("solid");
+            var faded = so.FindProperty("faded");
+            solid.arraySize = faded.arraySize = kit.FoliageSolid.Count;
+            for (int i = 0; i < kit.FoliageSolid.Count; i++)
+            {
+                solid.GetArrayElementAtIndex(i).objectReferenceValue = kit.FoliageSolid[i];
+                faded.GetArrayElementAtIndex(i).objectReferenceValue = kit.FoliageFaded[i];
+            }
+            so.ApplyModifiedPropertiesWithoutUndo();
         }
 
         // ================================================================ height
@@ -433,6 +483,20 @@ namespace ForestSoldier.EditorTools
             public readonly List<GameObject> Rocks = new List<GameObject>();
             public readonly List<GameObject> Bushes = new List<GameObject>();
             public Material Wood, Roof, Water, Bark, Rock, Signal;
+            public readonly List<Material> FoliageSolid = new List<Material>();
+            public readonly List<Material> FoliageFaded = new List<Material>();
+
+            public void Fadeable(Material solid, float alpha)
+            {
+                var faded = ColorMat(solid.name + "_Faded", solid.GetColor("_BaseColor"));
+                var c = solid.GetColor("_BaseColor");
+                c.a = alpha;
+                faded.SetColor("_BaseColor", c);
+                MakeTransparent(faded, 0.05f);
+                faded.SetFloat("_Cull", 2f);
+                FoliageSolid.Add(solid);
+                FoliageFaded.Add(faded);
+            }
         }
 
         private static Material EnvMat(string name, Color c, float smooth = 0.08f)
@@ -480,6 +544,9 @@ namespace ForestSoldier.EditorTools
             kit.Rock = EnvMat("Env_Rock", new Color(0.46f, 0.46f, 0.44f), 0.15f);
             var moss = EnvMat("Env_RockMoss", new Color(0.38f, 0.42f, 0.33f), 0.1f);
             var bush = EnvMat("Env_Bush", new Color(0.22f, 0.34f, 0.15f));
+            foreach (var m in needles) kit.Fadeable(m, 0.22f);
+            foreach (var m in leaves) kit.Fadeable(m, 0.22f);
+            kit.Fadeable(bush, 0.3f);
             kit.Wood = EnvMat("Env_Wood", new Color(0.44f, 0.31f, 0.19f));
             kit.Roof = EnvMat("Env_Roof", new Color(0.55f, 0.16f, 0.10f));
             kit.Signal = EnvMat("Env_Signal", new Color(0.95f, 0.15f, 0.1f));
@@ -512,7 +579,11 @@ namespace ForestSoldier.EditorTools
                     radius *= 0.74f;
                 }
                 var mesh = SaveMesh(mb.Build($"Mesh_Pine_{v}"));
-                kit.Pines.Add(EnvPrefab($"Pine_{v}", mesh, new[] { kit.Bark, needles[v % 2] }, g => TrunkCollider(g, 0.28f, 4f), 0.015f));
+                kit.Pines.Add(EnvPrefab($"Pine_{v}", mesh, new[] { kit.Bark, needles[v % 2] }, g =>
+                {
+                    TrunkCollider(g, 0.28f, 4f);
+                    CanopyVolume(g, new Vector3(0f, 4.6f, 0f), 2.0f, 7f);
+                }, 0.015f));
             }
 
             for (int v = 0; v < 3; v++)
@@ -527,7 +598,11 @@ namespace ForestSoldier.EditorTools
                     Blob(mb, 1, c, new Vector3(r, r * 0.85f, r), 0.18f, rng);
                 }
                 var mesh = SaveMesh(mb.Build($"Mesh_Broadleaf_{v}"));
-                kit.Broadleaves.Add(EnvPrefab($"Broadleaf_{v}", mesh, new[] { kit.Bark, leaves[v % 2] }, g => TrunkCollider(g, 0.34f, 4f), 0.015f));
+                kit.Broadleaves.Add(EnvPrefab($"Broadleaf_{v}", mesh, new[] { kit.Bark, leaves[v % 2] }, g =>
+                {
+                    TrunkCollider(g, 0.34f, 4f);
+                    CanopyVolume(g, new Vector3(0f, 4.9f, 0f), 2.4f, 5f);
+                }, 0.015f));
             }
 
             for (int v = 0; v < 5; v++)
@@ -554,7 +629,7 @@ namespace ForestSoldier.EditorTools
                 }
                 var mesh = SaveMesh(mb.Build($"Mesh_Bush_{v}"));
                 // Bushes don't block: they hide you, they don't stop you or bullets.
-                kit.Bushes.Add(EnvPrefab($"Bush_{v}", mesh, new[] { bush }, null, 0.02f));
+                kit.Bushes.Add(EnvPrefab($"Bush_{v}", mesh, new[] { bush }, g => CanopyVolume(g, new Vector3(0f, 0.5f, 0f), 0.85f, 1.7f), 0.02f));
             }
             return kit;
         }

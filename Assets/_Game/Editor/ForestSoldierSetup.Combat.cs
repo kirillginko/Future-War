@@ -316,70 +316,17 @@ namespace ForestSoldier.EditorTools
 
         // ---------------------------------------------------------------- player
 
-        /// <summary>Finds the barrel tip in the aim-idle pose, in SMGBone's local space.</summary>
-        private static (Vector3 pos, Quaternion rot) MeasureMuzzle(GameObject model, AnimationClip idle)
-        {
-            var probe = (GameObject)PrefabUtility.InstantiatePrefab(model);
-            try
-            {
-                probe.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
-                idle.SampleAnimation(probe, 0f);
-                var smg = FindDeep(probe.transform, "SMGBone");
+        // In SMGBone space, measured from the muzzle opening, barrel edges and
+        // sight rail of this soldier's SMG. Up follows the rail in the mesh.
+        private static readonly Vector3 MuzzlePosition = new(-0.0068643f, 0.5847188f, 0.0079300f);
+        private static readonly Quaternion MuzzleRotation = new(-0.6532371f, -0.2706214f, -0.2705933f, 0.6533182f);
 
-                List<Vector3> best = null;
-                var mesh = new Mesh();
-                foreach (var smr in probe.GetComponentsInChildren<SkinnedMeshRenderer>())
-                {
-                    if (smr.sharedMaterial == null || !smr.sharedMaterial.name.Contains("Weapon")) continue;
-                    smr.BakeMesh(mesh, true);
-                    var pts = mesh.vertices.Select(v => smr.transform.position + smr.transform.rotation * v).ToList();
-                    if (best == null || Extent(pts) > Extent(best)) best = pts;
-                }
-                Object.DestroyImmediate(mesh);
-                if (best == null) throw new System.InvalidOperationException("No weapon mesh found on the soldier.");
-
-                Vector3 c = best.Aggregate(Vector3.zero, (a, b) => a + b) / best.Count;
-                // long axis by power iteration on the covariance
-                float xx = 0, xy = 0, xz = 0, yy = 0, yz = 0, zz = 0;
-                foreach (var p in best)
-                {
-                    var d = p - c;
-                    xx += d.x * d.x; xy += d.x * d.y; xz += d.x * d.z; yy += d.y * d.y; yz += d.y * d.z; zz += d.z * d.z;
-                }
-                Vector3 axis = new Vector3(1f, 0.3f, 0.2f);
-                for (int i = 0; i < 60; i++)
-                    axis = new Vector3(xx * axis.x + xy * axis.y + xz * axis.z,
-                                       xy * axis.x + yy * axis.y + yz * axis.z,
-                                       xz * axis.x + yz * axis.y + zz * axis.z).normalized;
-                if (Vector3.Dot(axis, Vector3.forward) < 0f) axis = -axis; // the barrel points where the soldier faces
-                float max = best.Max(p => Vector3.Dot(p - c, axis));
-                var tip = best.Where(p => Vector3.Dot(p - c, axis) > max - 0.03f).ToList();
-                Vector3 tipCentre = tip.Aggregate(Vector3.zero, (a, b) => a + b) / tip.Count + axis * 0.02f;
-
-                Quaternion rot = Quaternion.LookRotation(axis, Vector3.up);
-                Debug.Log($"[ForestSoldierSetup] muzzle at {tipCentre} (gun length {(max - best.Min(p => Vector3.Dot(p - c, axis))):F2} m), barrel {axis}");
-                return (smg.InverseTransformPoint(tipCentre), Quaternion.Inverse(smg.rotation) * rot);
-            }
-            finally
-            {
-                Object.DestroyImmediate(probe);
-            }
-        }
-
-        private static float Extent(List<Vector3> pts)
-        {
-            var b = new Bounds(pts[0], Vector3.zero);
-            foreach (var p in pts) b.Encapsulate(p);
-            return b.size.magnitude;
-        }
-
-        private static void AddCombat(GameObject root, GameObject modelInstance, GameObject model, AnimationClip idle)
+        private static void AddCombat(GameObject root, GameObject modelInstance, GameObject model)
         {
             var smg = FindDeep(modelInstance.transform, "SMGBone");
-            var (mPos, mRot) = MeasureMuzzle(model, idle);
             var muzzle = new GameObject("Muzzle").transform;
             muzzle.SetParent(smg, false);
-            muzzle.SetLocalPositionAndRotation(mPos, mRot);
+            muzzle.SetLocalPositionAndRotation(MuzzlePosition, MuzzleRotation);
             Vector3 ls = smg.lossyScale;
             muzzle.localScale = new Vector3(1f / ls.x, 1f / ls.y, 1f / ls.z);
 
@@ -451,7 +398,10 @@ namespace ForestSoldier.EditorTools
             so.FindProperty("reloadSound").objectReferenceValue = reloadSound;
             so.FindProperty("reloadClack").objectReferenceValue = clackClip;
             so.FindProperty("hitConfirm").objectReferenceValue = pingClip;
+            WireBlood(so);
             so.ApplyModifiedPropertiesWithoutUndo();
+
+            root.AddComponent<GamepadRumble>(); // finds input and weapon on the same object
 
             so = new SerializedObject(weapon);
             so.FindProperty("input").objectReferenceValue = root.GetComponent<SoldierInput>();
@@ -517,6 +467,7 @@ namespace ForestSoldier.EditorTools
             so.FindProperty("weapon").objectReferenceValue = player.GetComponent<HitscanWeapon>();
             so.FindProperty("cameraRig").objectReferenceValue = rig;
             so.FindProperty("targets").objectReferenceValue = reset;
+            so.FindProperty("input").objectReferenceValue = player.GetComponent<SoldierInput>();
             so.ApplyModifiedPropertiesWithoutUndo();
         }
     }

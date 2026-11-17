@@ -91,6 +91,9 @@ namespace ForestSoldier.Tests
             Assert.That(motor.AnimationVelocity.magnitude, Is.EqualTo(motor.SprintSpeed).Within(0.2f));
             Assert.IsTrue(motor.IsSprinting);
             Assert.Greater(Param("MoveZ"), 5f);
+            var muzzle = player.GetComponent<Combat.HitscanWeapon>().Muzzle;
+            Assert.Greater(Vector3.Dot(muzzle.forward, player.forward), 0.9f, "sprinting keeps the barrel forward");
+            Assert.Greater(Vector3.Dot(muzzle.up, player.up), 0.9f, "sprinting keeps the rifle upright");
 
             input.Move = Vector2.zero;
             input.Sprint = false;

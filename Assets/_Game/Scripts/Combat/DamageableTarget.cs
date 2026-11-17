@@ -10,7 +10,7 @@ namespace ForestSoldier.Combat
     /// Hitboxes on child colliders forward damage here with a multiplier.
     /// The root's +Z should face the shooting position.
     /// </summary>
-    public class DamageableTarget : MonoBehaviour, IDamageable
+    public class DamageableTarget : MonoBehaviour, IHitZoneOwner
     {
         [SerializeField] private float maxHealth = 100f;
         [Tooltip("Rotates about its local X; everything that falls over is under it.")]

@@ -9,6 +9,21 @@ namespace ForestSoldier.Combat
         DamageResult ApplyDamage(in DamageInfo info);
     }
 
+    /// <summary>Something whose colliders carry <see cref="Hitbox"/>es that scale damage (heads, torsos).</summary>
+    public interface IHitZoneOwner : IDamageable
+    {
+        DamageResult ApplyDamage(in DamageInfo info, float multiplier, bool critical);
+    }
+
+    /// <summary>What a hit sounds and looks like: sparks and a ping, or blood and a thud.</summary>
+    public enum SurfaceKind { Hard, Flesh }
+
+    /// <summary>Put on anything that isn't hard (walkers); found from the hit collider's parents.</summary>
+    public interface ISurface
+    {
+        SurfaceKind Surface { get; }
+    }
+
     public readonly struct DamageInfo
     {
         public readonly float Amount;
