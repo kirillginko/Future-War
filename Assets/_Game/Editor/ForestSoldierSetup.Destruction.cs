@@ -646,6 +646,11 @@ namespace ForestSoldier.EditorTools
             // Chunks of ground and stone that bounce and settle.
             var rocks = BurstSystem(root, "Rocks", null, 22, new Vector2(2.5f, 4.5f), new Vector2(5f, 13f), new Vector2(0.08f, 0.2f),
                 new Color(0.4f, 0.38f, 0.35f), new Color(0.27f, 0.24f, 0.2f), 1.6f, 1f, null, ParticleSystemRenderMode.Mesh);
+            // Thrown up and out only: from a sphere, the lower half started inside the ground beneath a
+            // ground burst, where collision can't see them, and 1-3 rocks a blast fell through the world.
+            var rshape = rocks.shape;
+            rshape.shapeType = ParticleSystemShapeType.Hemisphere;
+            rshape.rotation = new Vector3(-90f, 0f, 0f); // the hemisphere's dome faces up
             var rmain = rocks.main;
             rmain.startRotation3D = true;
             rmain.startRotationX = new ParticleSystem.MinMaxCurve(0f, Mathf.PI * 2f);

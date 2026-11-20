@@ -202,6 +202,16 @@ namespace ForestSoldier.UI
 
         // ------------------------------------------------------------------ events
 
+        /// <summary>Hit marker and damage number for a weapon the HUD isn't subscribed to (the helicopter's).</summary>
+        public void ShowHit(ShotResult shot, IDamageable target, DamageResult result) => OnHit(shot, target, result);
+
+        /// <summary>Hide the soldier's HUD (while flying: the helicopter has its own).</summary>
+        public bool Hidden
+        {
+            get => canvas != null && !canvas.enabled;
+            set { if (canvas != null) canvas.enabled = !value; }
+        }
+
         private void OnHit(ShotResult shot, IDamageable target, DamageResult result)
         {
             HitMarkersShown++;

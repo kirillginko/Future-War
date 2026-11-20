@@ -28,3 +28,15 @@
 *.unitypackage
 crashlytics-buildid.txt
 .DS_Store
+
+# Third-party: Base Helicopter Controller (Asset Store licence; import it yourself, see README)
+/Assets/Helicopter/
+/Assets/Helicopter.meta
+# Made by Unity when importing that asset's sample terrains
+/Assets/_TerrainAutoUpgrade/
+/Assets/_TerrainAutoUpgrade.meta
+
+# Test runner and crash leftovers
+/Assets/InitTestScene*.unity
+/Assets/InitTestScene*.unity.meta
+mono_crash.*.json

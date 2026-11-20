@@ -23,7 +23,8 @@ namespace ForestSoldier.Combat
         private static readonly HashSet<DestructibleStructure> structures = new HashSet<DestructibleStructure>();
         private static readonly HashSet<Rigidbody> pushed = new HashSet<Rigidbody>();
 
-        public static ExplosionReport Explode(Vector3 centre, float radius, float maxDamage, float force, int mask, Object source)
+        /// <param name="breach">How far it breaks structures, as a multiple of the usual reach (rockets punch bigger holes than grenades).</param>
+        public static ExplosionReport Explode(Vector3 centre, float radius, float maxDamage, float force, int mask, Object source, float breach = 1f)
         {
             var report = new ExplosionReport();
             damaged.Clear();
@@ -70,7 +71,7 @@ namespace ForestSoldier.Combat
             }
 
             foreach (var s in structures)
-                report.FragmentsBroken += s.ExplodeAt(centre, radius, force);
+                report.FragmentsBroken += s.ExplodeAt(centre, radius * breach, force);
             return report;
         }
 

@@ -473,7 +473,8 @@ namespace ForestSoldier.Tests
             var rocks = fx.GetComponentsInChildren<ParticleSystem>().First(p => p.name == "Rocks");
             var parts = new ParticleSystem.Particle[rocks.particleCount];
             rocks.GetParticles(parts);
-            Assert.Greater(parts.Count(p => p.position.y > Ground(p.position) - 0.1f), parts.Length * 0.8f, "rocks land on the ground, not through it");
+            int sunk = parts.Count(p => p.position.y < Ground(p.position) - 0.1f);
+            Assert.AreEqual(0, sunk, $"every rock lands on the ground, none through it ({sunk} of {parts.Length} sank)");
 
             input.ResetTargetsRequested = true;
             yield return Frames(2);

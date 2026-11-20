@@ -828,7 +828,7 @@ MonoBehaviour:
   tracerWidth: 0.05
   bulletSpeed: 350
   streakLength: 4.5
-  tracerPool: 24
+  tracerPool: 48
   impactPrefab: {fileID: 8108154956102652565, guid: 3de5ddaaf0aa94a4d97194bdfc211a8c, type: 3}
   impactPool: 8
   particlesPerImpact: 10

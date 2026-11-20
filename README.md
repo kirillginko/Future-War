@@ -220,6 +220,119 @@ Tests: `SoldierDestructionTests` (16).
 - Bullet kills still play the death animations.
 - Every explosion layer fires, it scorches the ground, the rocks land on the ground, and reset clears the scorches.
 
+## Little Bird helicopter
+
+An MH-6 Little Bird sits on a helipad beside the range (16, 0, 7.5). Walk up to it and press **F** (controller: **Y** or **D-pad up**) to get in. Press the same button again to get out beside the door. The rotors take 4 s to run up (the HUD shows their speed), and it won't lift until they're nearly there.
+
+| | Keyboard and mouse | Xbox controller |
+|---|---|---|
+| Get in / out | F | Y or D-pad up |
+| Pitch and bank (fly) | WASD | Left stick |
+| Turn (pedals) | Q / E or mouse X | LB / RB or right stick X |
+| Look up and down | Mouse Y | Right stick Y |
+| Climb / descend | Space / Left Ctrl | A / B |
+| Miniguns | Left mouse | RT |
+| Rockets (rippled while held) | Right mouse | LT |
+
+On foot, Y also switches weapons. A press that gets you in doesn't also switch.
+
+**Flight** is the Base Helicopter Controller asset (`Assets/Helicopter`): its `HelicopterController` lift, tilt and forward thrust, and its `HeliRotorController` rotor spinners. Our `HelicopterPilot` (`Scripts/Vehicles`) sits on top of it. It aims for weight and momentum, and it is never quite still in the air.
+- **Input:** the asset's `ControlPanel` reads the legacy Input class, which this project has switched off. So the panel stays disabled, and the pilot raises its `KeyPressed` event from the Input System, twice per physics step. The pedals are analog: stick, bumpers or mouse, with small inputs giving small turns.
+- **Attitude:** the asset works out how far to lean (40° nose down, so the guns reach targets below; 30° into a bank; `TiltResponse` 2, so the lean builds over about a second) but no longer sets the rotation (`ExternalAttitude`). The pilot turns the airframe with rotational inertia. Pitch and roll swing towards the lean like a mass on a spring, slightly under-damped, so they take a moment and overshoot a little. Pitch is heavier than roll (0.45 swings a second against 0.8), so tipping into a full lean or levelling out takes about 1.5–2 s.
+- **Flapback:** airspeed lifts the nose, 0.06° per m/s. Let go at speed and the nose comes up, then eases down as it slows.
+- **Turning:** the turn rate builds at 150°/s² up to 75°/s, and runs down at 80°/s², so the nose carries on after you let go. At speed it leans into the turn, and starting or stopping a turn kicks a little roll from the tail rotor. Banking at speed turns the nose at up to 35°/s.
+- **Momentum:** it leans a lot, but only 56% of the leaning lift's sideways push moves it (`thrustShare`, set so a full 40° lean accelerates like a full 32° one at 75%), and there's almost no drag (0.13) and no push along the nose. So a big lean gathers speed over seconds (about 50–70 km/h after 6 s, 125 km/h flat out), it coasts a long way when you let go, and leaning back takes a few seconds to stop it. The chase camera trails it a little and widens at speed, so you see it gather and shed speed.
+- **Air:**
+  - Turbulence pushes on pitch, roll and yaw: noticeable in a hover, and much stronger at speed and in its own rotor wash near the ground. Gusts push twice as hard at top speed.
+  - The lift follows the tilt, so the rocking nudges it about, and slow gusts and bumps push the whole helicopter a little.
+  - A light breeze slowly swings round under the gusts, so the air is never quite still.
+  - Hands off in a hover, it rocks 3–7° and drifts 4–10 m in 5 s.
+- **Settings:** all of these are on `HelicopterPilot`, under **Handling**, **Weight (attitude)** and **Air**.
+- **Throttle:** set every step to fly a climb rate, up to 8 m/s up and 12 m/s down.
+  - The collective has weight: the climb or sink rate builds at 4 m/s² and is checked at 6 m/s².
+  - Let go and it carries on a little, then holds the height its momentum takes it to, with no bounce back.
+  - Near the ground the descent eases off (0.8 m/s per metre of height, down to 2.5 m/s), so it touches down gently.
+  - Hands off below 1.2 m, it settles onto the skids.
+  - The asset's on-ground flag is replaced by a contact check, because one skid lifting used to clear it while the other still rested.
+- **Rotors:** they have their own speed, separate from the throttle, so they never slow while you descend. They run up over 4 s, slow at first and then fast, and the sound rises with them. After you get out, they run down over about 9 s.
+
+**Camera:** `HelicopterCamera` on the main camera, a chase camera that takes over from the on-foot rig while you fly.
+
+**HUD and targeting** (`HelicopterHUD`, drawn as green vector lines by `UI/HudLines` in one mesh). The soldier's HUD hides while you fly.
+- **Heading tape** across the top, with the heading readout.
+- **Speed** (km/h) on the left. **Height** on the right, with the climb rate and a 0–60 m radar-altitude scale.
+- **Attitude indicator** centred on the helicopter. A pitch ladder from −40° to +40°, numbered every 10°, runs either side of the body, with a gap as wide as the cabin and pods on screen, so it never covers the helicopter. Two short bars beside it mark its own level. It banks the same way the helicopter does at half the angle; 4.5 px per degree, within 190 px. Gap, line length and scale are settings on `HelicopterHUD`.
+- **Gun reticle:** a circle where the rounds will actually land, which slides off the crosshair once the target is past the guns' 25° swing, plus a spin-up ring. It flashes on a hit and turns red on a kill, with "KILL" below.
+- **Rocket marker:** a diamond where a rocket fired now would land, worked out along its dropping path.
+- **Targets:** a red diamond over every live target and walker within 400 m. The locked target gets pulsing brackets, LOCK and its range.
+- **Weapons panel:** minigun spin-up, 14 rocket pips, and REARMING while the pods refill.
+- **Warnings:** rotor spool percentage while the rotors run up, and PULL UP when sinking fast low over the ground.
+- **Controls hint:** bottom left, for keyboard or controller.
+
+**Weapons** (`HelicopterWeapons`):
+- **Miniguns:** two of them, 2400 rpm hitscan from alternating barrels after a 0.25 s spin-up. They swing up to 25° off the nose to meet the crosshair, or the locked target. Streaks, impacts, blood, casings and hit markers come from the soldier's own `WeaponEffects` and HUD.
+- **Rockets:** 14 unguided rockets in two pods. Each one bursts with the grenade's blast, so it does damage, destruction and ragdolls, only harder.
+  - It breaks walls over 1.7× a grenade's reach (`breach` on `Explosions.Explode`; grenades keep 1) and throws the pieces harder (force 13).
+  - It tears about 12 chunks off whatever it hits (`Combat/DebrisBurst`, a pool of 120 physics blocks), up to 16 more off a structure it breaks. Chunks take the surface's own material (wall, rock, or dirt off the ground), tumble, lie for 7 s and shrink away. They're on Ignore Raycast, so rounds and blasts pass through them.
+  - The pods refill after 1.5 s parked on the ground.
+- **Target lock:**
+  - A live target or walker within 5° of the crosshair, within 350 m and in sight, is locked.
+  - The lock holds until the target is 10° off the crosshair, and moves to another target that is clearly (2°) closer to it.
+  - While locked, the guns aim at the target (the middle of a range target's board, a walker's chest), so you can keep firing on it while the helicopter rocks.
+
+**Model:** `Tools/Blender/import_helicopter.py` converts the downloaded `helicopters_mh-6_little_bird.glb` to `Art/Vehicles/LittleBird/LittleBird.fbx` and names the rotors. The setup script builds the `LittleBird` prefab: it points the nose to +Z, adds box colliders and puts everything on the `Vehicle` layer (11). It also adds the gun and rocket mounts, measured from the weapon pods.
+
+**Setting up the Base Helicopter Controller.** It isn't in this repository: Asset Store packages can't be shared publicly. To build the helicopter:
+1. Import the free **Base Helicopter Controller** from the Asset Store into `Assets/Helicopter`.
+2. Make the changes below. Each one is marked `ForestSoldier:` in our copy.
+3. Run **Forest Soldier ▸ Rebuild Prototype Assets**, or `ForestSoldierSetup.BuildAll` in batch mode. Until the asset is imported, the project won't compile: our scripts reference it.
+
+The changes:
+- **`Assets/Helicopter/Scripts/BaseHelicopterController.asmdef`**, new, so our assemblies can reference the asset:
+  ```json
+  { "name": "BaseHelicopterController", "references": ["UnityEngine.UI"], "autoReferenced": true }
+  ```
+- **`CheckpointController.cs`:** comment out `using System.Security.Policy;`. It's unused and doesn't exist in this .NET profile.
+- **`HelicopterController.cs`, `EngineForce` setter:** guard the sample UI, which our scene doesn't have:
+  ```csharp
+  if (UIGameController.runtime != null && UIGameController.runtime.EngineForceView != null)
+      UIGameController.runtime.EngineForceView.text = ...;
+  ```
+- **`HelicopterController.cs`, new fields** after `turnForcePercent`:
+  ```csharp
+  public float TiltResponse = 1f;          // how quickly the tilt follows the stick
+  public bool ExternalAttitude = false;    // HelicopterPilot turns the airframe itself
+  public Vector2 TiltTarget { get { return hTilt; } }
+  ```
+- **`HelicopterController.cs`, `TiltProcess`:** use `TiltResponse`, and read and write the Rigidbody's rotation, not the Transform's. With interpolation on, writing the lagging Transform back every step undid the yaw.
+  ```csharp
+  hTilt.x = Mathf.Lerp(hTilt.x, hMove.x * TurnTiltForce, Time.deltaTime * TiltResponse);
+  hTilt.y = Mathf.Lerp(hTilt.y, hMove.y * ForwardTiltForce, Time.deltaTime * TiltResponse);
+  if (!ExternalAttitude)
+      HelicopterModel.rotation = Quaternion.Euler(hTilt.y, HelicopterModel.rotation.eulerAngles.y, -hTilt.x);
+  ```
+
+**Credits.** The helicopter model is [Helicopters MH-6 Little Bird](https://sketchfab.com/3d-models/helicopters-mh-6-little-bird-69cb05db3fc3483cb729734262abf28e) by [mario low poly](https://sketchfab.com/mariogpymario117), licensed under [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/). It was converted to FBX and its rotors were renamed by `Tools/Blender/import_helicopter.py`.
+
+Tests: `SoldierHelicopterTests` (13).
+- The helicopter is built on the asset.
+- Getting in and out.
+- Take-off and descent build up rather than snap. Let go and it carries on up, then holds its height (the air still rocks it by more than 1°).
+- The rotors run up slowly, give no lift before they're up, keep their speed while descending, and run down slowly after you get out.
+- Weight and momentum:
+  - The turn builds, then coasts on more than 15° after you let go.
+  - The lean swings in rather than snapping (still tipping over after 1 s), it gathers way slowly (under 36 km/h after 2.5 s), and the nose comes back to level when you let go.
+  - It reaches 36–137 km/h after 6 s.
+  - It keeps over 70% of its speed for 2 s hands off, and leaning back takes more than 1 s (and under 6 s) to brake it.
+- The air: hands off, it rocks 2.5–20° and is pushed more than 1 m (and under 25 m) in 5 s.
+- HUD: drawn only while flying, with the soldier's HUD hidden; gun reticle, rocket marker and target markers on screen; the target under the crosshair locks; it all goes when you get out.
+- A rocket breaks more of a wall than a grenade-style blast in the same spot, and rockets throw debris.
+- With the crosshair held 4° above a locked target, the guns still hit it and cut it down.
+- Controller: every gamepad binding, the right stick turning it, and controller hints on the HUD.
+- The miniguns cut down the 20 m target, steering against the air like a player would.
+- Rockets ripple, each explodes, it touches down at under 4 m/s, and the pods rearm on landing.
+- Screenshots `h_01`–`h_05`.
+
 ## Inspector wiring
 
 All of this is assigned by the setup script; listed here so you can check or redo it by hand.

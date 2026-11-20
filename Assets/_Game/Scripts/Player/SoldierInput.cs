@@ -44,6 +44,13 @@ namespace ForestSoldier.Player
         public bool FirstPersonRequested { get; set; }
         public int WeaponSlotRequested { get; set; } = -1;
         public bool CycleWeaponRequested { get; set; }
+        /// <summary>Set on the press (F / Y / D-pad up), for that frame only: get in or out of a vehicle.</summary>
+        public bool InteractRequested { get; set; }
+        /// <summary>Held: climb / descend in a helicopter (Space, A / Left Ctrl, B).</summary>
+        public bool Ascend { get; set; }
+        public bool Descend { get; set; }
+        /// <summary>Helicopter pedals, -1..1 (Q / E, LB / RB).</summary>
+        public float Yaw { get; set; }
         public bool CursorLocked { get; private set; }
         /// <summary>The last input came from a gamepad (for prompts, rumble and aim slowdown).</summary>
         public bool UsingGamepad { get; set; }
@@ -53,6 +60,7 @@ namespace ForestSoldier.Player
         private InputAction frontView, firstPersonView;
         private InputAction[] weaponSlots;
         private InputAction cycleWeapon;
+        private InputAction interact, ascend, descend, yaw;
         private bool fireHeldSinceCapture;
         private bool crouchLatched;
 
@@ -82,6 +90,10 @@ namespace ForestSoldier.Player
             weaponSlots = new[] { map.FindAction("Weapon1", true), map.FindAction("Weapon2", true),
                 map.FindAction("Weapon3", true), map.FindAction("Weapon4", true) };
             cycleWeapon = map.FindAction("CycleWeapon", true);
+            interact = map.FindAction("Interact", true);
+            ascend = map.FindAction("Ascend", true);
+            descend = map.FindAction("Descend", true);
+            yaw = map.FindAction("Yaw", true);
         }
 
         private void OnEnable()
@@ -142,6 +154,11 @@ namespace ForestSoldier.Player
             Fire = CursorLocked && !fireHeldSinceCapture && fire.IsPressed();
             if (CursorLocked && reload.WasPressedThisFrame()) ReloadRequested = true;
             if (resetTargets.WasPressedThisFrame()) ResetTargetsRequested = true;
+            // A pulse, not a latch: Y also cycles weapons, and a press away from any vehicle must not linger.
+            InteractRequested = CursorLocked && interact.WasPressedThisFrame();
+            Ascend = CursorLocked && ascend.IsPressed();
+            Descend = CursorLocked && descend.IsPressed();
+            Yaw = CursorLocked ? yaw.ReadValue<float>() : 0f;
             if (CursorLocked && switchLauncher.WasPressedThisFrame()) SwitchLauncherRequested = true;
             if (CursorLocked && frontView.WasPressedThisFrame()) FrontViewRequested = true;
             if (CursorLocked && firstPersonView.WasPressedThisFrame()) FirstPersonRequested = true;
@@ -151,6 +168,18 @@ namespace ForestSoldier.Player
                     if (weaponSlots[i].WasPressedThisFrame()) WeaponSlotRequested = i;
                 if (cycleWeapon.WasPressedThisFrame()) CycleWeaponRequested = true;
             }
+        }
+
+        /// <summary>
+        /// Forget presses and toggles made while they couldn't apply (flying a helicopter):
+        /// B toggled crouch, C / V asked for a view, 1-4 / Y asked for a weapon.
+        /// </summary>
+        public void ClearOnFootRequests()
+        {
+            crouchLatched = false;
+            Crouch = false;
+            FrontViewRequested = FirstPersonRequested = CycleWeaponRequested = SwitchLauncherRequested = ReloadRequested = false;
+            WeaponSlotRequested = -1;
         }
 
         public void SetCursorLocked(bool locked)

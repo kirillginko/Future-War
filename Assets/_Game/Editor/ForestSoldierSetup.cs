@@ -76,6 +76,7 @@ namespace ForestSoldier.EditorTools
             ConfigureWeaponModels();
             BuildWalkerAssets(clips, model);
             BuildDestructionAssets();
+            BuildHelicopterAssets();
             var prefab = CreatePlayerPrefab(model, controller);
             CreateScene(prefab);
             AssetDatabase.SaveAssets();
@@ -465,6 +466,7 @@ namespace ForestSoldier.EditorTools
             BuildForest(light, cam);
             PlaceWalkers();
             PlaceHouses(cam);
+            PlaceHelicopter(cam);
 
             EditorSceneManager.SaveScene(scene, ScenePath);
 

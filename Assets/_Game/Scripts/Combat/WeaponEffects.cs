@@ -24,7 +24,7 @@ namespace ForestSoldier.Combat
         [Tooltip("Visual bullet speed (m/s). 9 mm leaves a Bizon at about 380.")]
         [SerializeField] private float bulletSpeed = 350f;
         [SerializeField] private float streakLength = 4.5f;
-        [SerializeField] private int tracerPool = 24;
+        [SerializeField] private int tracerPool = 48; // the helicopter miniguns put a dozen in the air at once
 
         [Header("Impacts")]
         [SerializeField] private ParticleSystem impactPrefab;
@@ -203,25 +203,7 @@ namespace ForestSoldier.Combat
             }
             SetFlash(true);
 
-            // The round flies: a streak from the muzzle to the hit; the impact waits for it.
-            var t = tracers[nextTracer];
-            nextTracer = (nextTracer + 1) % tracers.Count;
-            if (!t.Arrived && t.PendingImpact) ShowImpact(t); // pool wrapped: don't lose that impact
-            Vector3 toEnd = shot.End - muzzle.position;
-            t.Start = muzzle.position;
-            t.Length = toEnd.magnitude;
-            t.Dir = t.Length > 1e-4f ? toEnd / t.Length : muzzle.forward;
-            t.Head = 0f;
-            t.Arrived = false;
-            t.Shot = shot;
-            t.Flesh = flesh;
-            t.Killed = result.Killed;
-            t.PendingImpact = shot.Hit;
-            t.Line.SetPosition(0, t.Start);
-            t.Line.SetPosition(1, t.Start);
-            t.Line.enabled = true;
-            SetTracerAlpha(t, 1f);
-
+            LaunchTracer(muzzle.position, muzzle.forward, shot, flesh, result.Killed);
             EjectCasing(muzzle);
 
             Play(ChooseShot(), shotVolume);
@@ -230,6 +212,46 @@ namespace ForestSoldier.Combat
                 if (flesh) Play(result.Killed && fleshKill != null ? fleshKill : fleshHit, hitVolume * 1.3f);
                 else Play(hitConfirm, hitVolume);
             }
+        }
+
+        /// <summary>
+        /// One round from another gun (the helicopter's miniguns): the travelling streak, the impact
+        /// when it lands, an optional casing and the hit sound. No shot sound or rifle muzzle flash.
+        /// </summary>
+        public void PlayRound(Transform muzzle, ShotResult shot, DamageResult result, bool ejectCasing)
+        {
+            var surface = shot.Hit ? shot.Info.collider.GetComponentInParent<ISurface>() : null;
+            bool flesh = surface != null && surface.Surface == SurfaceKind.Flesh;
+            LaunchTracer(muzzle.position, muzzle.forward, shot, flesh, result.Killed);
+            if (ejectCasing) EjectCasing(muzzle);
+            if (result.Landed)
+            {
+                if (flesh) Play(result.Killed && fleshKill != null ? fleshKill : fleshHit, hitVolume * 1.3f);
+                else Play(hitConfirm, hitVolume * 0.6f);
+            }
+        }
+
+        private void LaunchTracer(Vector3 from, Vector3 fallbackDir, ShotResult shot, bool flesh, bool killed)
+        {
+            // The round flies: a streak from the muzzle to the hit; the impact waits for it.
+            var t = tracers[nextTracer];
+            nextTracer = (nextTracer + 1) % tracers.Count;
+            if (!t.Arrived && t.PendingImpact) ShowImpact(t); // pool wrapped: don't lose that impact
+            Vector3 toEnd = shot.End - from;
+            t.Start = from;
+            t.Length = toEnd.magnitude;
+            t.Dir = t.Length > 1e-4f ? toEnd / t.Length : fallbackDir;
+            t.Head = 0f;
+            t.Arrived = false;
+            t.Shot = shot;
+            t.Flesh = flesh;
+            t.Killed = killed;
+            t.PendingImpact = shot.Hit;
+            t.Line.SetPosition(0, t.Start);
+            t.Line.SetPosition(1, t.Start);
+            t.Line.enabled = true;
+            SetTracerAlpha(t, 1f);
+
         }
 
         // ------------------------------------------------------------ casings

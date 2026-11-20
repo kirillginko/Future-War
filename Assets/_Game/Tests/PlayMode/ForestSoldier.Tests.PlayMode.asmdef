@@ -6,7 +6,8 @@
         "UnityEditor.TestRunner",
         "ForestSoldier",
         "Unity.InputSystem",
-        "UnityEngine.UI"
+        "UnityEngine.UI",
+        "BaseHelicopterController"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
